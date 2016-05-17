@@ -61,9 +61,7 @@ class EndpointDiscoveryController extends ActionController
      */
     protected $resultTemplate = [
         'meta' => [
-            'api-version' => [
-                'Netlogix.JsonApiOrg.AnnotationGenerics' => '0.0.1',
-            ],
+            'api-version' => [],
         ],
         'links' => []
     ];
@@ -100,16 +98,13 @@ class EndpointDiscoveryController extends ActionController
     protected function getResultJson()
     {
         $result = $this->resultTemplate;
-
-        /** @var \TYPO3\Flow\Package\PackageInterface $package */
-        foreach ($this->packageManager->getActivePackages() as $package) {
-            if (substr($package->getPackageKey(), 0, 11) === 'Netlogix.JsonApiOrg.AnnotationGenerics') {
-                $result['meta']['api-version'][$package->getPackageKey()] = $package->getPackageMetaData()->getVersion();
-            }
-        }
+        $packageKeys = ['Netlogix.JsonApiOrg', 'Netlogix.JsonApiOrg.AnnotationGenerics'];
 
         foreach ($this->reflectionService->getClassNamesByAnnotation(JsonApi\ExposeType::class) as $className)
         {
+            $packageKey = str_replace('\\', '.', current(preg_split('%\\\\(Domain|Model)\\\\%i', $className)));
+            $packageKeys[$packageKey] = $packageKey;
+
             $type = null;
             $uri = null;
             try {
@@ -130,6 +125,11 @@ class EndpointDiscoveryController extends ActionController
                 ],
             ];
         }
+
+        foreach ($packageKeys as $packageKey) {
+            $result['meta']['api-version'][$packageKey] = $this->packageManager->getPackage($packageKey)->getPackageMetaData()->getVersion();
+        }
+
         sort($result['links']);
         return $result;
     }
