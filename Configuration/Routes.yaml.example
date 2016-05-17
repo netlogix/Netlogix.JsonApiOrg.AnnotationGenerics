@@ -1,0 +1,57 @@
+# Those routes are meant to be put in the distribution configuration.
+
+# Endpoint Discovery should work "as is"
+
+-
+  name: 'Netlogix.JsonApiOrg: .well-known'
+  uriPattern: '.well-known/endpoint-discovery'
+  defaults:
+    '@package':    'Netlogix.JsonApiOrg.AnnotationGenerics'
+    '@controller': 'EndpointDiscovery'
+    '@action':     'index'
+    '@format':     'json'
+
+# The actual model routes need to be adjusted. The "example" is the last part of the package key.
+-
+  name: 'GenericModel - index'
+  uriPattern: 'example/{resourceType}'
+  defaults:
+    '@package':    'Netlogix.JsonApiOrg.AnnotationGenerics'
+    '@controller': 'GenericModel'
+    '@action':     'index'
+    '@format':     'json'
+    'subPackage':  'example'
+  toLowerCase: false
+
+-
+  name: 'GenericModel - show'
+  uriPattern: 'example/{resourceType}/{resource}'
+  defaults:
+    '@package':    'Netlogix.JsonApiOrg.AnnotationGenerics'
+    '@controller': 'GenericModel'
+    '@action':     'index'
+    '@format':     'json'
+    'subPackage':  'example'
+  toLowerCase: false
+
+-
+  name: 'GenericModel - relationship'
+  uriPattern: 'example/{resourceType}/{resource}/relationships/{relationshipName}'
+  defaults:
+    '@package':    'Netlogix.JsonApiOrg.AnnotationGenerics'
+    '@controller': 'GenericModel'
+    '@action':     'index'
+    '@format':     'json'
+    'subPackage':  'example'
+  toLowerCase: false
+
+-
+  name: 'GenericModel - related'
+  uriPattern: 'example/{resourceType}/{resource}/{relationshipName}'
+  defaults:
+    '@package':    'Netlogix.JsonApiOrg.AnnotationGenerics'
+    '@controller': 'GenericModel'
+    '@action':     'showRelated'
+    '@format':     'json'
+    'subPackage':  'example'
+  toLowerCase: false
