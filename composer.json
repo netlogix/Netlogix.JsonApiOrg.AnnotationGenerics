@@ -1,0 +1,19 @@
+{
+  "name": "netlogix/jsonapiorg-annotationgenerics",
+  "type": "typo3-flow-package",
+  "homepage": "http://www.netlogix.de",
+  "license": [
+    "MIT"
+  ],
+  "require": {
+    "typo3/flow": "*",
+    "netlogix/jsonapiorg": "*"
+  },
+  "suggest": {
+  },
+  "autoload": {
+    "psr-0": {
+      "Netlogix\\JsonApiOrg\\AnnotationGenerics": "Classes"
+    }
+  }
+}
