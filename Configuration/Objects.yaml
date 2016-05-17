@@ -1,0 +1,2 @@
+Netlogix\JsonApiOrg\Resource\Information\ExposableTypeMapInterface:
+  className: 'Netlogix\JsonApiOrg\AnnotationGenerics\Resource\Information\ExposableTypeMap'
