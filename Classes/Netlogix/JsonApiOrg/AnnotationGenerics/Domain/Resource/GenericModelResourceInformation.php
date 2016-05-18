@@ -22,7 +22,7 @@ use TYPO3\Flow\Utility\TypeHandling;
  */
 class GenericModelResourceInformation extends ResourceInformation implements ResourceInformationInterface
 {
-    const DOMAIN_MODEL_PATTERN = '%(?<vendor>[^\\\\]+)\\\\(?<package>.*)\\\\(?<subPackage>[^\\\\]+)\\\\Domain\\\\(Model|Command)\\\\(?<resourceType>[^\\\\]+)%i';
+    const DOMAIN_MODEL_PATTERN = '%(?<vendor>[^\\\\]+)\\\\(?<package>.*)\\\\(?<subPackage>[^\\\\]+)\\\\Domain\\\\(Model|Command)\\\\(?<resourceType>.+)$%i';
 
     /**
      * @var int
@@ -62,7 +62,11 @@ class GenericModelResourceInformation extends ResourceInformation implements Res
                 $result['subPackage'][] = lcfirst($subPackage);
             }
             $result['subPackage'] = join('.', $result['subPackage']);
-            $result['resourceType'] = lcfirst($matches['resourceType']);
+            $result['resourceType'] = [];
+            foreach (explode('\\', $matches['resourceType']) as $resourceType) {
+                $result['resourceType'][] = lcfirst($resourceType);
+            }
+            $result['resourceType'] = join('.', $result['resourceType']);
         }
         return $result;
     }
