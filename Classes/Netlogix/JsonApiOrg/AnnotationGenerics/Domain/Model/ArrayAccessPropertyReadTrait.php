@@ -54,7 +54,7 @@ trait ArrayAccessPropertyReadTrait
         if ($this->offsetGet($offset) === $value) {
             return;
         }
-        throw new \InvalidArgumentException('The property " . $offset . " is not to be set.', 1463495464);
+        throw new \InvalidArgumentException('The property "' . $offset . '"" is not to be set.', 1463495464);
     }
 
     /**
@@ -66,6 +66,23 @@ trait ArrayAccessPropertyReadTrait
         if (!$this->offsetGet($offset)) {
             return;
         }
-        throw new \InvalidArgumentException('The property " . $offset . " is not to be set.', 1463495475);
+        throw new \InvalidArgumentException('The property "' . $offset . '"" is not to be set.', 1463495475);
+    }
+
+    /**
+     * @param $offset
+     * @return mixed
+     * @throws PropertyNotAccessibleException
+     */
+    public function __get($offset)
+    {
+        try {
+            return $this->offsetGet($offset);
+        } catch (PropertyNotAccessibleException $e) {
+            if (!method_exists(get_parent_class($this), '__get')) {
+                throw $e;
+            }
+            return parent::__get($offset);
+        }
     }
 }
