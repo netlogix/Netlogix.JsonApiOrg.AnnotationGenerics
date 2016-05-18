@@ -4,12 +4,17 @@
 
 -
   name: 'Netlogix.JsonApiOrg: .well-known'
-  uriPattern: '.well-known/endpoint-discovery'
+  uriPattern: '.well-known/endpoint-discovery(/{packageKey})'
   defaults:
     '@package':    'Netlogix.JsonApiOrg.AnnotationGenerics'
     '@controller': 'EndpointDiscovery'
     '@action':     'index'
     '@format':     'json'
+    'packageKey':  'sdf'
+  toLowerCase: true
+  routeParts:
+    packageKey:
+      toLowerCase: false
 
 # The actual model routes need to be adjusted. The "example" is the last part of the package key.
 -

@@ -72,34 +72,25 @@ class EndpointDiscoveryController extends ActionController
     protected $packageKeysTemplate = ['Netlogix.JsonApiOrg', 'Netlogix.JsonApiOrg.AnnotationGenerics'];
 
     /**
-     * @return string
-     */
-    public function indexAction()
-    {
-        $result = $this->getResultJson();
-
-        $this->response->setHeader('Content-Type', 'application/json');
-        return json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-    }
-
-    /**
      * @param string $packageKey
      * @return string
      */
-    public function showAction($packageKey)
+    public function indexAction($packageKey = null)
     {
         $result = $this->getResultJson();
-        foreach ($result['links'] as $key => $link) {
-            if (stripos($link['meta']['packageKey'] . '.', $packageKey . '.') !== 0) {
-                unset($result['links'][$key]);
+        if ($packageKey) {
+            foreach ($result['links'] as $key => $link) {
+                if (stripos($link['meta']['packageKey'] . '.', $packageKey . '.') !== 0) {
+                    unset($result['links'][$key]);
+                }
             }
-        }
-        foreach ($result['meta']['api-version'] as $key => $link) {
-            if (in_array($key, $this->packageKeysTemplate)) {
-                continue;
-            }
-            if (stripos($key . '.', $packageKey . '.') !== 0) {
-                unset($result['meta']['api-version'][$key]);
+            foreach ($result['meta']['api-version'] as $key => $link) {
+                if (in_array($key, $this->packageKeysTemplate)) {
+                    continue;
+                }
+                if (stripos($key . '.', $packageKey . '.') !== 0) {
+                    unset($result['meta']['api-version'][$key]);
+                }
             }
         }
 
