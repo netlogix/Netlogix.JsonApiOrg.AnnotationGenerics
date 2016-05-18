@@ -67,6 +67,11 @@ class EndpointDiscoveryController extends ActionController
     ];
 
     /**
+     * @var array<string>
+     */
+    protected $packageKeysTemplate = ['Netlogix.JsonApiOrg', 'Netlogix.JsonApiOrg.AnnotationGenerics'];
+
+    /**
      * @return string
      */
     public function indexAction()
@@ -74,7 +79,7 @@ class EndpointDiscoveryController extends ActionController
         $result = $this->getResultJson();
 
         $this->response->setHeader('Content-Type', 'application/json');
-        return json_encode($result, JSON_PRETTY_PRINT);
+        return json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
     }
 
     /**
@@ -85,11 +90,21 @@ class EndpointDiscoveryController extends ActionController
     {
         $result = $this->getResultJson();
         foreach ($result['links'] as $key => $link) {
-
+            if (stripos($link['meta']['packageKey'] . '.', $packageKey . '.') !== 0) {
+                unset($result['links'][$key]);
+            }
+        }
+        foreach ($result['meta']['api-version'] as $key => $link) {
+            if (in_array($key, $this->packageKeysTemplate)) {
+                continue;
+            }
+            if (stripos($key . '.', $packageKey . '.') !== 0) {
+                unset($result['meta']['api-version'][$key]);
+            }
         }
 
         $this->response->setHeader('Content-Type', 'application/json');
-        return json_encode($result, JSON_PRETTY_PRINT);
+        return json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
     }
 
     /**
@@ -98,7 +113,7 @@ class EndpointDiscoveryController extends ActionController
     protected function getResultJson()
     {
         $result = $this->resultTemplate;
-        $packageKeys = ['Netlogix.JsonApiOrg', 'Netlogix.JsonApiOrg.AnnotationGenerics'];
+        $packageKeys = $this->packageKeysTemplate;
 
         foreach ($this->reflectionService->getClassNamesByAnnotation(JsonApi\ExposeType::class) as $className)
         {
@@ -122,6 +137,7 @@ class EndpointDiscoveryController extends ActionController
                 'meta' => [
                     'type' => 'resourceUri',
                     'resourceType' => $type,
+                    'packageKey' => $packageKey,
                 ],
             ];
         }
