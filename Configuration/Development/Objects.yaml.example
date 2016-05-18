@@ -1,0 +1,7 @@
+'Netlogix\JsonApiOrg\AnnotationGenerics\Controller\GenericModelController':
+  properties:
+    'supportedMediaTypes':
+      value:
+        0: 'application/json'
+        1: 'application/vnd.api+json'
+        2: 'text/html'
