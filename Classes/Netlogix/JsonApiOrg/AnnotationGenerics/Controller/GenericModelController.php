@@ -15,6 +15,7 @@ use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Repository\GenericModelReposit
 use Netlogix\JsonApiOrg\Controller\ApiController;
 use Netlogix\JsonApiOrg\Resource\Information\ExposableTypeMapInterface;
 use TYPO3\Flow\Annotations as Flow;
+use TYPO3\Flow\Object\Exception\UnknownObjectException;
 
 /**
  * An action controller dealing with jsonapi.org data structures.
@@ -81,9 +82,11 @@ class GenericModelController extends ApiController
 
     /**
      * @param WriteModelInterface $resource
+     * @param string $resourceType
      */
-    public function createAction(WriteModelInterface $resource)
+    public function createAction(WriteModelInterface $resource, $resourceType = '')
     {
+        $this->getRepositoryForResourceType($resourceType)->add($resource);
         $topLevel = $this->relationshipIterator->createTopLevel($resource);
         $this->view->assign('value', $topLevel);
     }
@@ -100,15 +103,23 @@ class GenericModelController extends ApiController
     }
 
     /**
-     * Creates the repository reponsible for the given type
+     * Creates the repository responsible for the given type
      *
      * @param string $resourceType
      * @return GenericModelRepositoryInterface
+     * @throws UnknownObjectException
      */
     protected function getRepositoryForResourceType($resourceType)
     {
-        $repositoryClassName = str_replace('\\Domain\\Model\\', '\\Domain\\Repository\\', $this->getModelClassNameForResourceType($resourceType)) . 'Repository';
-        return $this->objectManager->get($repositoryClassName);
+        $class = $this->getModelClassNameForResourceType($resourceType);
+        $parentClasses = array_merge([$class], class_parents($class));
+        foreach ($parentClasses as $modelCandidate) {
+            $repositoryCandidate = str_replace('\\Domain\\Model\\', '\\Domain\\Repository\\', $modelCandidate) . 'Repository';
+            if (class_exists($repositoryCandidate)) {
+                return $this->objectManager->get($repositoryCandidate);
+            }
+        }
+        throw new UnknownObjectException('No Repository found for class "' . $class . '".', 1264589155);
     }
 
     /**
