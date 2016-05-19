@@ -100,10 +100,11 @@ class ConfigurationProvider
             /** @var JsonApi\ExposeProperty $annotation */
             $annotation = $this->reflectionService->getPropertyAnnotation($type, $propertyName, JsonApi\ExposeProperty::class);
             $targetType = TypeHandling::parseType($this->reflectionService->getPropertyTagValues($type, $propertyName, 'var')[0]);
+
             if ($annotation->exposeAsAttribute) {
                 $settings['attributesToBeApiExposed'][$propertyName] = $propertyName;
 
-            } elseif ($targetType['type'] === 'array' && !TypeHandling::isSimpleType($targetType['elementType'])) {
+            } elseif (TypeHandling::isCollectionType($targetType['type']) && !TypeHandling::isSimpleType($targetType['elementType'])) {
                 $settings['relationshipsToBeApiExposed'][$propertyName] = Relationships::RELATIONSHIP_TYPE_COLLECTION;
 
             } elseif (TypeHandling::isSimpleType($targetType['type'])) {
