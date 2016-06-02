@@ -66,7 +66,7 @@ trait ArrayAccessPropertyReadTrait
         if (!$this->offsetGet($offset)) {
             return;
         }
-        throw new \InvalidArgumentException('The property "' . $offset . '"" is not to be set.', 1463495475);
+        throw new \InvalidArgumentException('The property "' . $offset . '"" is not to be unset.', 1463495475);
     }
 
     /**
@@ -79,10 +79,10 @@ trait ArrayAccessPropertyReadTrait
         try {
             return $this->offsetGet($offset);
         } catch (PropertyNotAccessibleException $e) {
-            if (!method_exists(get_parent_class($this), '__get')) {
-                throw $e;
+            if (is_callable('parent::__get')) {
+                return parent::__get($offset);
             }
-            return parent::__get($offset);
+            throw $e;
         }
     }
 }
