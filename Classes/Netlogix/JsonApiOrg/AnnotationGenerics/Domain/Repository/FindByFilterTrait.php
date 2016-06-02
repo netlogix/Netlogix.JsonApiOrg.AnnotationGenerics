@@ -11,7 +11,11 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Repository;
 
 use TYPO3\Flow\Persistence\QueryInterface;
 use TYPO3\Flow\Persistence\QueryResultInterface;
+use TYPO3\Flow\Persistence\RepositoryInterface;
 
+/**
+ * @var $this RepositoryInterface|FindByFilterTrait
+ */
 trait FindByFilterTrait
 {
     /**
@@ -51,6 +55,12 @@ trait FindByFilterTrait
      */
     protected function addPropertyFilterConstraint(QueryInterface $query, $propertyPath, $value)
     {
+        if ($propertyPath === '__identity') {
+            $entityClassName = $this->getEntityClassName();
+            if (property_exists($entityClassName, 'Persistence_Object_Identifier')) {
+                return $query->equals('Persistence_Object_Identifier', $value);
+            }
+        }
         return $query->equals($propertyPath, $value);
     }
 }
