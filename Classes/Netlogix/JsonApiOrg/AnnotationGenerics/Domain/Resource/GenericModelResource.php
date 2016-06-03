@@ -49,6 +49,21 @@ class GenericModelResource extends AbstractResource
     }
 
     /**
+     * @param string $propertyName
+     * @return mixed
+     * @throws \TYPO3\Flow\Reflection\Exception\PropertyNotAccessibleException
+     */
+    public function getPayloadProperty($propertyName)
+    {
+        $result = parent::getPayloadProperty($propertyName);
+        if (is_object($result) && $result instanceof \DateTime) {
+            return $result->format(\DateTime::W3C);
+        } else {
+            return $result;
+        }
+    }
+
+    /**
      * @return GenericModelInterface
      */
     public function getPayload()

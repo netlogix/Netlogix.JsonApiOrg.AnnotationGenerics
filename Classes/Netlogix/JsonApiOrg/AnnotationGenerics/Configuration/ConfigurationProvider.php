@@ -10,6 +10,8 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Configuration;
  */
 
 use Netlogix\JsonApiOrg\AnnotationGenerics\Annotations as JsonApi;
+use Netlogix\JsonApiOrg\Resource\Information\ExposableTypeMapInterface;
+use Netlogix\JsonApiOrg\Resource\Information\ResourceMapper;
 use Netlogix\JsonApiOrg\Schema\Relationships;
 use TYPO3\Flow\Annotations as Flow;
 use TYPO3\Flow\Reflection\ReflectionService;
@@ -26,6 +28,12 @@ class ConfigurationProvider
      * @Flow\Inject
      */
     protected $reflectionService;
+
+    /**
+     * @var ResourceMapper
+     * @Flow\Inject
+     */
+    protected $resourceMapper;
 
     /**
      * @var array
@@ -101,14 +109,21 @@ class ConfigurationProvider
             $annotation = $this->reflectionService->getPropertyAnnotation($type, $propertyName, JsonApi\ExposeProperty::class);
             $targetType = TypeHandling::parseType($this->reflectionService->getPropertyTagValues($type, $propertyName, 'var')[0]);
 
+            $isCollection = (bool)$targetType['elementType'];
+            $elementType = $isCollection ? $targetType['elementType'] : $targetType['type'];
+            $isSimpleType = TypeHandling::isSimpleType($elementType);
+
             if ($annotation->exposeAsAttribute) {
                 $settings['attributesToBeApiExposed'][$propertyName] = $propertyName;
 
-            } elseif (TypeHandling::isCollectionType($targetType['type']) && !TypeHandling::isSimpleType($targetType['elementType'])) {
-                $settings['relationshipsToBeApiExposed'][$propertyName] = Relationships::RELATIONSHIP_TYPE_COLLECTION;
-
-            } elseif (TypeHandling::isSimpleType($targetType['type'])) {
+            } elseif ($isSimpleType) {
                 $settings['attributesToBeApiExposed'][$propertyName] = $propertyName;
+
+            } elseif (!$isSimpleType && !$this->resourceMapper->findResourceInformation($elementType)) {
+                $settings['attributesToBeApiExposed'][$propertyName] = $propertyName;
+
+            } elseif ($isCollection) {
+                $settings['relationshipsToBeApiExposed'][$propertyName] = Relationships::RELATIONSHIP_TYPE_COLLECTION;
 
             } else {
                 $settings['relationshipsToBeApiExposed'][$propertyName] = Relationships::RELATIONSHIP_TYPE_SINGLE;

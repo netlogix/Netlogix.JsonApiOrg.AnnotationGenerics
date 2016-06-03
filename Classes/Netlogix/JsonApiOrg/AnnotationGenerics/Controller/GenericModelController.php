@@ -40,10 +40,23 @@ class GenericModelController extends ApiController
     /**
      * @param array $filter
      * @param string $resourceType
+     * @return string|null
      */
     public function listAction(array $filter = [], $resourceType = '')
     {
-        $result = $this->getRepositoryForResourceType($resourceType)->findByFilter($filter);
+        try {
+            $repository = $this->getRepositoryForResourceType($resourceType);
+        } catch (UnknownObjectException $e)  {
+            $this->response->setStatus(400);
+            $this->response->setHeader('Content-Type', current($this->supportedMediaTypes));
+            $result = ['errors' => [
+                'code' => 400,
+                'title' => 'The resource type "' . strtolower($resourceType) . '" is not an aggregate root.',
+            ]];
+            return json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        }
+
+        $result = $repository->findByFilter($filter);
         $topLevel = $this->relationshipIterator->createTopLevel($result);
         $this->view->assign('value', $topLevel);
     }
