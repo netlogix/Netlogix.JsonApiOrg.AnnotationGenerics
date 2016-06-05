@@ -27,6 +27,15 @@ use TYPO3\Flow\Reflection\ReflectionService;
 class EndpointDiscoveryController extends ActionController
 {
     /**
+     * @var array
+     */
+    protected $supportedMediaTypes = array(
+        'application/vnd.api+json',
+        'application/json',
+        'text/html'
+    );
+
+    /**
      * @var ReflectionService
      * @Flow\Inject
      */
