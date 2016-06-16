@@ -51,10 +51,10 @@ trait ArrayAccessPropertyReadTrait
      */
     public function offsetSet($offset, $value)
     {
-        if ($this->offsetGet($offset) === $value) {
+        $oldValue = $this->offsetGet($offset);
+        if ($oldValue === $value) {
             return;
         }
-        $oldValue = $this->offsetGet($offset);
         if (is_object($oldValue) && $oldValue instanceof \DateTime && is_string($value)) {
             if ($oldValue->format('U') === (new \DateTime($value))->format('U')) {
                 return;
