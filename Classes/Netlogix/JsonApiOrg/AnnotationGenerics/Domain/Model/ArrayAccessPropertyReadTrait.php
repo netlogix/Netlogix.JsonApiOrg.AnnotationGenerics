@@ -54,6 +54,12 @@ trait ArrayAccessPropertyReadTrait
         if ($this->offsetGet($offset) === $value) {
             return;
         }
+        $oldValue = $this->offsetGet($offset);
+        if (is_object($oldValue) && $oldValue instanceof \DateTime && is_string($value)) {
+            if ($oldValue->format('U') === (new \DateTime($value))->format('U')) {
+                return;
+            }
+        }
         throw new \InvalidArgumentException('The property "' . $offset . '"" is not to be set.', 1463495464);
     }
 
