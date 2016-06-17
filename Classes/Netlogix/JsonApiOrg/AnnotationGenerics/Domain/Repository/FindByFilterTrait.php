@@ -62,6 +62,23 @@ trait FindByFilterTrait
         return $query->execute();
     }
 
+    /**
+     * See: http://discuss.jsonapi.org/t/share-propose-a-filtering-strategy/257
+     * See: http://docs.oasis-open.org/odata/odata/v4.0/odata-v4.0-part2-url-conventions.html
+     *
+     * The whole world of OData comparison might be way beyond the level of power we want to
+     * expose, so I'm against adding this "as is".
+     *
+     * But as long as the target is a property of the resource and not a property of a relationship
+     * (which means it targets "price", not "categories.price") I guess providing basic support for
+     * numeric comparison such as "eq" (default), "ne", "gt", "ge", "lt" and "le" should be part
+     * of this library.
+     *
+     * @param QueryInterface $query
+     * @param string $propertyPath
+     * @param $value
+     * @return object
+     */
     protected function addPropertyFilterConstraint(QueryInterface $query, $propertyPath, $value)
     {
         if ($propertyPath === '__identity') {
@@ -82,7 +99,8 @@ trait FindByFilterTrait
                 case 'integer':
                 case 'float':
                     return $this->addFilterConstraintForNumericProperty($query, $propertyPath, $value);
-                    break;
+                case 'DateTime':
+                    return $this->addFilterConstraintForDateTimeProperty($query, $propertyPath, $value);
 
             }
         }
@@ -97,7 +115,7 @@ trait FindByFilterTrait
      *
      * @param QueryInterface $query
      * @param $propertyPath
-     * @param $value
+     * @param mixed $value
      * @return object
      */
     protected function addFilterConstraintForBooleanProperty(QueryInterface $query, $propertyPath, $value)
@@ -112,45 +130,108 @@ trait FindByFilterTrait
     }
 
     /**
-     * See: http://discuss.jsonapi.org/t/share-propose-a-filtering-strategy/257
-     * See: http://docs.oasis-open.org/odata/odata/v4.0/odata-v4.0-part2-url-conventions.html
+     * Numeric filters means the target property is of type float or integer.
+     * Input are either nummbers or arrays of numbers. Both might be not
+     * actual numbers but strings of numbers, prefixed with a compare operator.
      *
-     * The whole world of OData comparison might be way beyond the level of power we want to
-     * expose, so I'm against adding this "as is".
-     *
-     * But as long as the target is a property of the resource and not a property of a relationship
-     * (which means it targets "price", not "categories.price") I guess providing basic support for
-     * numeric comparison such as "eq" (default), "ne", "gt", "ge", "lt" and "le" should be part
-     * of this library.
+     * /resource?filter[number]=100
+     * /resource?filter[number][]=gt 100&filter[number][]=lt 200
      *
      * @param QueryInterface $query
      * @param string $propertyPath
-     * @param $value
+     * @param array <string> $value
      * @return object
      */
     protected function addFilterConstraintForNumericProperty(QueryInterface $query, $propertyPath, $value)
     {
-        if (preg_match('%^\\s*(?<operator>eq|ne|gt|ge|lt|le)\\s*(?<value>\\d+(\\.\\d+)?)\\s*$%i', $value, $matches)) {
-            $operator = $matches['operator'];
-            $value = (float)$matches['value'];
-        } else {
-            $operator = 'eq';
-            $value = (float)$value;
-        }
+        $constraints = [];
+        $values = (array)$value;
 
-        switch ($operator) {
-            case 'eq':
-                return $query->equals($propertyPath, $value);
-            case 'ne':
-                return $query->logicalNot($query->equals($propertyPath, $value));
-            case 'gt':
-                return $query->greaterThan($propertyPath, $value);
-            case 'ge':
-                return $query->greaterThanOrEqual($propertyPath, $value);
-            case 'lt':
-                return $query->lessThan($propertyPath, $value);
-            case 'le':
-                return $query->lessThanOrEqual($propertyPath, $value);
+        foreach ($values as $constraintValue) {
+            if (preg_match('%^\\s*(?<operator>eq|ne|gt|ge|lt|le)\\s*(?<value>\\d+(\\.\\d+)?)\\s*$%i', $constraintValue,
+                $matches)) {
+                $operator = $matches['operator'];
+                $constraintValue = (float)$matches['value'];
+            } else {
+                $operator = 'eq';
+                $constraintValue = (float)$constraintValue;
+            }
+            switch ($operator) {
+                case 'eq':
+                    $constraints[] = $query->equals($propertyPath, $constraintValue);
+                    break;
+                case 'ne':
+                    $constraints[] = $query->logicalNot($query->equals($propertyPath, $constraintValue));
+                    break;
+                case 'gt':
+                    $constraints[] = $query->greaterThan($propertyPath, $constraintValue);
+                    break;
+                case 'ge':
+                    $constraints[] = $query->greaterThanOrEqual($propertyPath, $constraintValue);
+                    break;
+                case 'lt':
+                    $constraints[] = $query->lessThan($propertyPath, $constraintValue);
+                    break;
+                case 'le':
+                    $constraints[] = $query->lessThanOrEqual($propertyPath, $constraintValue);
+                    break;
+            }
+        }
+        if ($constraints) {
+            return $query->logicalAnd($constraints);
+        } else {
+            return $query->equals($propertyPath, $value);
+        }
+    }
+
+    /**
+     * Date type filters means the target property is of type datetime.
+     * Input is a string that can be used to construct a DateTime object,
+     * prefixed by a compare operator.
+     *
+     * /resource?filter[date]=gt now
+     * /resource?filter[date][]=gt -1 week&filter[date][]=lt +1 week
+     *
+     * @param QueryInterface $query
+     * @param string $propertyPath
+     * @param array <string> $value
+     * @return object
+     */
+    protected function addFilterConstraintForDateTimeProperty(QueryInterface $query, $propertyPath, $value)
+    {
+        $constraints = [];
+        $values = (array)$value;
+
+        foreach ($values as $constraintValue) {
+            if (preg_match('%^(?<operator>eq|gt|ge|lt|le)\\s*(?<value>.*)$%i', $constraintValue, $matches)) {
+                $operator = $matches['operator'];
+                $constraintValue = new \DateTime($matches['value']);
+            } else {
+                $operator = 'eq';
+                $constraintValue = new \DateTime($constraintValue);
+            }
+            switch (strtolower($operator)) {
+                case 'eq':
+                    $constraints[] = $query->equals($propertyPath, $constraintValue);
+                    break;
+                case 'gt':
+                    $constraints[] = $query->greaterThan($propertyPath, $constraintValue);
+                    break;
+                case 'ge':
+                    $constraints[] = $query->greaterThanOrEqual($propertyPath, $constraintValue);
+                    break;
+                case 'lt':
+                    $constraints[] = $query->lessThan($propertyPath, $constraintValue);
+                    break;
+                case 'le':
+                    $constraints[] = $query->lessThanOrEqual($propertyPath, $constraintValue);
+                    break;
+            }
+        }
+        if ($constraints) {
+            return $query->logicalAnd($constraints);
+        } else {
+            return $query->equals($propertyPath, $value);
         }
     }
 }
