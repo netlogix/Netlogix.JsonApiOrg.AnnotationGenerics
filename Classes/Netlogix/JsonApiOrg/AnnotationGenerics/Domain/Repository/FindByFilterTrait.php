@@ -15,6 +15,7 @@ use TYPO3\Flow\Persistence\RepositoryInterface;
 use TYPO3\Flow\Annotations as Flow;
 use TYPO3\Flow\Property\PropertyMappingConfiguration;
 use TYPO3\Flow\Utility\TypeHandling;
+use Doctrine\ORM\Mapping as ORM;
 
 /**
  * @var $this RepositoryInterface|FindByFilterTrait
@@ -32,6 +33,12 @@ trait FindByFilterTrait
      * @Flow\Inject
      */
     protected $propertyMapper;
+
+    /**
+     * @var \TYPO3\Flow\Reflection\ReflectionService
+     * @Flow\Inject
+     */
+    protected $reflectionService;
 
     /**
      * Takes several key/value pairs where every key targets a property path and
@@ -85,6 +92,10 @@ trait FindByFilterTrait
             $entityClassName = $this->getEntityClassName();
             if (property_exists($entityClassName, 'Persistence_Object_Identifier')) {
                 return $query->equals('Persistence_Object_Identifier', $value);
+            } else {
+                foreach ($this->reflectionService->getPropertyNamesByAnnotation($entityClassName, ORM\Id::class) as $propertyName) {
+                    return $query->equals($propertyName, $value);
+                }
             }
         }
 
