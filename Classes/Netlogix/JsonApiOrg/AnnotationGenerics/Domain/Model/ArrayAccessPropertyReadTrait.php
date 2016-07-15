@@ -44,6 +44,10 @@ trait ArrayAccessPropertyReadTrait
 			throw new PropertyNotAccessibleException('The property "' . $offset . '" on the subject was not accessible.',
 				1463495379);
 		}
+		$getterMethodName = 'get' . ucfirst($offset);
+		if (is_callable([$this, $getterMethodName])) {
+			return $this->{$getterMethodName}();
+		}
 		return $this->{$offset};
 	}
 
