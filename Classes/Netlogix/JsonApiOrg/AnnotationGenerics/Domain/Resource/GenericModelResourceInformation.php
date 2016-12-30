@@ -46,11 +46,20 @@ class GenericModelResourceInformation extends ResourceInformation implements Res
     protected $payloadClassName = GenericModelInterface::class;
 
     /**
-     * @param mixed $resource
+     * @param object $resource
      * @return array
      */
     public function getResourceControllerArguments($resource)
     {
+        static $resultCache = null;
+        if ($resultCache === null) {
+            $resultCache = new \SplObjectStorage();
+        }
+
+        if ($resultCache->contains($resource)) {
+            return $resultCache->offsetGet($resource);
+        }
+
         $settings = $this->configurationProvider->getSettingsForType($resource);
         $result = [
             $settings['argumentName'] => $resource,
@@ -68,10 +77,14 @@ class GenericModelResourceInformation extends ResourceInformation implements Res
             }
             $result['resourceType'] = join('.', $result['resourceType']);
         }
+
+        $resultCache->offsetSet($resource, $result);
         return $result;
     }
 
     /**
+     * @param object $resource
+     * @param string $relationshipName
      * @return array
      */
     protected function getRelationshipControllerArguments($resource, $relationshipName)
@@ -82,7 +95,7 @@ class GenericModelResourceInformation extends ResourceInformation implements Res
     }
 
     /**
-     * @param mixed $resource
+     * @param object $resource
      * @param string $controllerActionName
      * @param array $controllerArguments
      * @return Uri
