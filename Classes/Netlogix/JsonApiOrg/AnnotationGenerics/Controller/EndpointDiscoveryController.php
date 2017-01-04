@@ -12,6 +12,7 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Controller;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Annotations as JsonApi;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Configuration\ConfigurationProvider;
 use Netlogix\JsonApiOrg\Resource\Information\ResourceMapper;
+use Netlogix\JsonApiOrg\View\JsonView;
 use TYPO3\Flow\Annotations as Flow;
 use TYPO3\Flow\Mvc\Controller\ActionController;
 use TYPO3\Flow\Object\ObjectManagerInterface;
@@ -20,8 +21,6 @@ use TYPO3\Flow\Property\Exception\FormatNotSupportedException;
 use TYPO3\Flow\Reflection\ReflectionService;
 
 /**
- * Endpoint Discovery
- *
  * @Flow\Scope("singleton")
  */
 class EndpointDiscoveryController extends ActionController
@@ -33,6 +32,13 @@ class EndpointDiscoveryController extends ActionController
         'application/vnd.api+json',
         'application/json',
         'text/html'
+    );
+
+    /**
+     * @var array
+     */
+    protected $viewFormatToObjectNameMap = array(
+        'json' => JsonView::class
     );
 
     /**
@@ -103,8 +109,7 @@ class EndpointDiscoveryController extends ActionController
             }
         }
 
-        $this->response->setHeader('Content-Type', 'application/json');
-        return json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        $this->view->assign('value', $result);
     }
 
     /**
@@ -161,7 +166,7 @@ class EndpointDiscoveryController extends ActionController
 
     /**
      * @param mixed $resource
-     * @return \TYPO3\Flow\Http\Uri
+     * @return string
      */
     protected function buildUriForDummyResource($resource)
     {
