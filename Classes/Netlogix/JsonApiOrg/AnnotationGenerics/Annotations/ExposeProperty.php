@@ -15,7 +15,7 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Annotations;
  * corresponding property, it is either used as an attribute or a relationship.
  *
  * @Annotation
- * @Target("PROPERTY")
+ * @Target({"METHOD", "PROPERTY"})
  */
 final class ExposeProperty
 {
