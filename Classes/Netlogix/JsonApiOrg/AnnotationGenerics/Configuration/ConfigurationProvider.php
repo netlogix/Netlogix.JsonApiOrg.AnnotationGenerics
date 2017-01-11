@@ -107,28 +107,22 @@ class ConfigurationProvider
         foreach ($this->reflectionService->getPropertyNamesByAnnotation($type, JsonApi\ExposeProperty::class) as $propertyName) {
             /** @var JsonApi\ExposeProperty $annotation */
             $annotation = $this->reflectionService->getPropertyAnnotation($type, $propertyName, JsonApi\ExposeProperty::class);
-            $targetType = TypeHandling::parseType($this->reflectionService->getPropertyTagValues($type, $propertyName, 'var')[0]);
+            $targetType = $this->reflectionService->getPropertyTagValues($type, $propertyName, 'var')[0];
+            $settings = $this->applyAnnotationBasedConfigurationForProperty($propertyName, $annotation, $targetType, $settings);
+        }
 
-            $isCollection = (bool)$targetType['elementType'];
-            $elementType = $isCollection ? $targetType['elementType'] : $targetType['type'];
-            $isSimpleType = TypeHandling::isSimpleType($elementType);
-
-            if ($annotation->exposeAsAttribute) {
-                $settings['attributesToBeApiExposed'][$propertyName] = $propertyName;
-
-            } elseif ($isSimpleType) {
-                $settings['attributesToBeApiExposed'][$propertyName] = $propertyName;
-
-            } elseif (!$isSimpleType && !$this->resourceMapper->findResourceInformation($elementType)) {
-                $settings['attributesToBeApiExposed'][$propertyName] = $propertyName;
-
-            } elseif ($isCollection) {
-                $settings['relationshipsToBeApiExposed'][$propertyName] = Relationships::RELATIONSHIP_TYPE_COLLECTION;
-
-            } else {
-                $settings['relationshipsToBeApiExposed'][$propertyName] = Relationships::RELATIONSHIP_TYPE_SINGLE;
-
+        foreach (get_class_methods($type) as $methodName) {
+            if (substr($methodName, 0, 3) !== 'get' || !is_callable(array($type, $methodName))) {
+                continue;
             }
+
+            /** @var JsonApi\ExposeProperty $annotation */
+            $annotation = $this->reflectionService->getMethodAnnotation($type, $methodName, JsonApi\ExposeProperty::class);
+            if ($annotation === null) {
+                continue;
+            }
+            $targetType = $this->reflectionService->getMethodTagsValues($type, $methodName)['return'][0];
+            $settings = $this->applyAnnotationBasedConfigurationForProperty(lcfirst(substr($methodName, 3)), $annotation, $targetType, $settings);
         }
 
         /** @var JsonApi\ExposeType $annotation */
@@ -146,6 +140,39 @@ class ConfigurationProvider
             if (!$settings['argumentName']) {
                 $settings['argumentName'] = lcfirst($flatType);
             }
+
+        }
+
+        return $settings;
+    }
+
+    /**
+     * @param string $propertyName
+     * @param JsonApi\ExposeProperty $annotation
+     * @param string $type
+     * @param array $settings
+     * @return array
+     */
+    protected function applyAnnotationBasedConfigurationForProperty($propertyName, $annotation, $type, array $settings) {
+        $targetType = TypeHandling::parseType($type);
+        $isCollection = (bool)$targetType['elementType'];
+        $elementType = $isCollection ? $targetType['elementType'] : $targetType['type'];
+        $isSimpleType = TypeHandling::isSimpleType($elementType);
+
+        if ($annotation->exposeAsAttribute) {
+            $settings['attributesToBeApiExposed'][$propertyName] = $propertyName;
+
+        } elseif ($isSimpleType) {
+            $settings['attributesToBeApiExposed'][$propertyName] = $propertyName;
+
+        } elseif (!$isSimpleType && !$this->resourceMapper->findResourceInformation($elementType)) {
+            $settings['attributesToBeApiExposed'][$propertyName] = $propertyName;
+
+        } elseif ($isCollection) {
+            $settings['relationshipsToBeApiExposed'][$propertyName] = Relationships::RELATIONSHIP_TYPE_COLLECTION;
+
+        } else {
+            $settings['relationshipsToBeApiExposed'][$propertyName] = Relationships::RELATIONSHIP_TYPE_SINGLE;
 
         }
 
