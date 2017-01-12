@@ -57,10 +57,28 @@ final class ExposeType
     public $subPackageKey = null;
 
     /**
+     * Each exposed object needs to be available through its resource URI, so having
+     * a controller in place is mandatory.
+     *
+     * This is the action name.
+     *
+     * @var string
+     */
+    public $actionName = 'index';
+
+    /**
      * Usually the action argument "$resource" is used. To name the input argument more
      * domain specific, this allows renaming.
      *
      * @var string
      */
     public $argumentName = 'resource';
+
+    /**
+     * Most exposed objects should be visible in endpoint discovery. But sometimes objects
+     * are only available through other objects. This flag hides them in endpoint discovery.
+     *
+     * @var bool
+     */
+    public $private = false;
 }
