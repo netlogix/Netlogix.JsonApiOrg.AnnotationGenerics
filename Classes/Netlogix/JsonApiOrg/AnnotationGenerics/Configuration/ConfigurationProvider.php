@@ -114,7 +114,7 @@ class ConfigurationProvider
         }
 
         foreach (get_class_methods($type) as $methodName) {
-            if (substr($methodName, 0, 3) !== 'get' || !is_callable(array($type, $methodName))) {
+            if ((substr($methodName, 0, 3) !== 'get' && substr($methodName, 0, 2) !== 'is' && substr($methodName, 0, 3) !== 'has') || !is_callable(array($type, $methodName))) {
                 continue;
             }
 
@@ -124,7 +124,7 @@ class ConfigurationProvider
                 continue;
             }
             $targetType = $this->reflectionService->getMethodTagsValues($type, $methodName)['return'][0];
-            $settings = $this->applyAnnotationBasedConfigurationForProperty(lcfirst(substr($methodName, 3)), $annotation, $targetType, $settings);
+            $settings = $this->applyAnnotationBasedConfigurationForProperty(lcfirst(ltrim($methodName, 'getisha')), $annotation, $targetType, $settings);
         }
 
         /** @var JsonApi\ExposeType $annotation */
