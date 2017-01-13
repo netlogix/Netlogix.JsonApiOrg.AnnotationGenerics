@@ -129,6 +129,9 @@ class EndpointDiscoveryController extends ActionController
             $uri = null;
             try {
                 $resource = $this->getDummyObject($className);
+                if ($this->configurationProvider->getSettingsForType($resource)['private']) {
+                    continue;
+                }
                 $type = $this->resourceMapper->getDataIdentifierForPayload($resource)['type'];
                 $uri = $this->buildUriForDummyResource($resource);
             } catch (FormatNotSupportedException $e) {}
@@ -183,7 +186,7 @@ class EndpointDiscoveryController extends ActionController
             ->setCreateAbsoluteUri(true);
 
         return $uriBuilder->uriFor(
-            'index',
+            $settings['actionName'],
             $controllerArguments,
             $settings['controllerName'],
             $settings['packageKey'],

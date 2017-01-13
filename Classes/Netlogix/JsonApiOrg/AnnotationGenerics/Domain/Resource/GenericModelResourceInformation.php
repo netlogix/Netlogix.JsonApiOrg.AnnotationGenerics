@@ -10,6 +10,7 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Resource;
  */
 
 use Netlogix\JsonApiOrg\AnnotationGenerics\Configuration\ConfigurationProvider;
+use Netlogix\JsonApiOrg\AnnotationGenerics\Controller\GenericModelController;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\GenericModelInterface;
 use Netlogix\JsonApiOrg\Resource\Information\ResourceInformation;
 use Netlogix\JsonApiOrg\Resource\Information\ResourceInformationInterface;
@@ -65,7 +66,8 @@ class GenericModelResourceInformation extends ResourceInformation implements Res
             $settings['argumentName'] => $resource,
         ];
         $type = TypeHandling::getTypeForValue($resource);
-        if (preg_match(self::DOMAIN_MODEL_PATTERN, $type, $matches)) {
+        $controllerClassName = str_replace('.', '\\', $settings['packageKey'] . '\\Controller\\' . $settings['controllerName'] . 'Controller');
+        if (preg_match(self::DOMAIN_MODEL_PATTERN, $type, $matches) && class_exists($controllerClassName) && is_subclass_of($controllerClassName, GenericModelController::class)) {
             $result['subPackage'] = [];
             foreach (explode('\\', $matches['subPackage']) as $subPackage) {
                 $result['subPackage'][] = lcfirst($subPackage);

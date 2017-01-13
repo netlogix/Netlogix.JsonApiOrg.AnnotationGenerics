@@ -51,9 +51,11 @@ class ConfigurationProvider
      */
     protected $defaultConfigurationSchema = [
         'argumentName' => '',
+        'actionName' => '',
         'controllerName' => '',
         'packageKey' => '',
         'subPackageKey' => null,
+        'private' => false,
         'attributesToBeApiExposed' => [],
         'relationshipsToBeApiExposed' => [],
     ];
@@ -127,7 +129,7 @@ class ConfigurationProvider
 
         /** @var JsonApi\ExposeType $annotation */
         foreach ($this->reflectionService->getClassAnnotations($type, JsonApi\ExposeType::class) as $annotation) {
-            foreach (['packageKey', 'subPackageKey', 'controllerName', 'argumentName'] as $setting) {
+            foreach (['packageKey', 'subPackageKey', 'controllerName', 'actionName', 'argumentName', 'private'] as $setting) {
                 if ((!array_key_exists($setting, $settings) || !$settings[$setting]) && $annotation->{$setting}) {
                     $settings[$setting] = $annotation->{$setting};
                 } elseif (!array_key_exists($setting, $settings)) {
