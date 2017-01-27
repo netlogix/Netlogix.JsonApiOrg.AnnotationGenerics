@@ -245,4 +245,27 @@ trait FindByFilterTrait
             return $query->equals($propertyPath, $value);
         }
     }
+
+    /**
+     * @param QueryInterface $query
+     * @param string $propertyPath
+     * @param string $value
+     * @return object
+     */
+    protected function addLikeFilterConstraintForProperty(QueryInterface $query, $propertyPath, $value) {
+        $searchValue = trim($value, '*');
+        $constraints = [
+            $query->equals($propertyPath, $searchValue, false),
+        ];
+        if (substr($value, 0, 1) === '*') {
+            $constraints[] = $query->like($propertyPath, '%' . $searchValue, false);
+        }
+        if (substr($value, -1) === '*') {
+            $constraints[] = $query->like($propertyPath, $searchValue . '%', false);
+        }
+        if (substr($value, 0, 1) === '*' && substr($value, -1) === '*') {
+            $constraints[] = $query->like($propertyPath, '%' . $searchValue . '%', false);
+        }
+        return $query->logicalOr($constraints);
+    }
 }
