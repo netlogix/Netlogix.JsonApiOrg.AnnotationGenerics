@@ -1,12 +1,12 @@
 {
     "name": "netlogix/jsonapiorg-annotationgenerics",
-    "type": "typo3-flow-package",
+    "type": "neos-package",
     "homepage": "http://www.netlogix.de",
     "license": [
         "MIT"
     ],
     "require": {
-        "typo3/flow": "*",
+        "neos/flow": "~4.0.0",
         "netlogix/jsonapiorg": "*"
     },
     "suggest": [],
