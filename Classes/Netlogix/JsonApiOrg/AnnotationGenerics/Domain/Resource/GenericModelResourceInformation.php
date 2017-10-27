@@ -14,9 +14,9 @@ use Netlogix\JsonApiOrg\AnnotationGenerics\Controller\GenericModelController;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\GenericModelInterface;
 use Netlogix\JsonApiOrg\Resource\Information\ResourceInformation;
 use Netlogix\JsonApiOrg\Resource\Information\ResourceInformationInterface;
-use TYPO3\Flow\Annotations as Flow;
-use TYPO3\Flow\Http\Uri;
-use TYPO3\Flow\Utility\TypeHandling;
+use Neos\Flow\Annotations as Flow;
+use Neos\Flow\Http\Uri;
+use Neos\Utility\TypeHandling;
 
 /**
  * @Flow\Scope("singleton")

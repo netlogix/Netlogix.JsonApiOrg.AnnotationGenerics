@@ -14,8 +14,8 @@ use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\ReadModelInterface;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Repository\GenericModelRepositoryInterface;
 use Netlogix\JsonApiOrg\Controller\ApiController;
 use Netlogix\JsonApiOrg\Resource\Information\ExposableTypeMapInterface;
-use TYPO3\Flow\Annotations as Flow;
-use TYPO3\Flow\Object\Exception\UnknownObjectException;
+use Neos\Flow\Annotations as Flow;
+use Neos\Flow\ObjectManagement\Exception\UnknownObjectException;
 
 /**
  * An action controller dealing with jsonapi.org data structures.
@@ -77,7 +77,7 @@ class GenericModelController extends ApiController
     public function showRelationshipAction(ReadModelInterface $resource, $relationshipName)
     {
         $resourceResource = $this->findResourceResource($resource);
-        $relationship = \TYPO3\Flow\Reflection\ObjectAccess::getProperty($resourceResource->getRelationships(), $relationshipName);
+        $relationship = \Neos\Utility\ObjectAccess::getProperty($resourceResource->getRelationships(), $relationshipName);
         $this->view->assign('value', $relationship);
     }
 

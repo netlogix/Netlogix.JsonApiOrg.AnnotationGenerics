@@ -14,7 +14,7 @@ use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\GenericModelInterface;
 use Netlogix\JsonApiOrg\Domain\Dto\AbstractResource;
 use Netlogix\JsonApiOrg\Schema\Relationships;
 use Netlogix\JsonApiOrg\Resource\Information\ResourceInformationInterface;
-use TYPO3\Flow\Annotations as Flow;
+use Neos\Flow\Annotations as Flow;
 
 class GenericModelResource extends AbstractResource
 {
@@ -51,7 +51,7 @@ class GenericModelResource extends AbstractResource
     /**
      * @param string $propertyName
      * @return mixed
-     * @throws \TYPO3\Flow\Reflection\Exception\PropertyNotAccessibleException
+     * @throws \Neos\Utility\Exception\PropertyNotAccessibleException
      */
     public function getPayloadProperty($propertyName)
     {

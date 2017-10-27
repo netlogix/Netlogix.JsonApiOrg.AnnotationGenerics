@@ -9,12 +9,12 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Repository;
  * source code.
  */
 
-use TYPO3\Flow\Persistence\QueryInterface;
-use TYPO3\Flow\Persistence\QueryResultInterface;
-use TYPO3\Flow\Persistence\RepositoryInterface;
-use TYPO3\Flow\Annotations as Flow;
-use TYPO3\Flow\Property\PropertyMappingConfiguration;
-use TYPO3\Flow\Utility\TypeHandling;
+use Neos\Flow\Persistence\QueryInterface;
+use Neos\Flow\Persistence\QueryResultInterface;
+use Neos\Flow\Persistence\RepositoryInterface;
+use Neos\Flow\Annotations as Flow;
+use Neos\Flow\Property\PropertyMappingConfiguration;
+use Neos\Utility\TypeHandling;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
@@ -23,19 +23,19 @@ use Doctrine\ORM\Mapping as ORM;
 trait FindByFilterTrait
 {
     /**
-     * @var \TYPO3\Flow\Property\TypeConverter\ObjectConverter
+     * @var \Neos\Flow\Property\TypeConverter\ObjectConverter
      * @Flow\Inject
      */
     protected $objectConverter;
 
     /**
-     * @var \TYPO3\Flow\Property\PropertyMapper
+     * @var \Neos\Flow\Property\PropertyMapper
      * @Flow\Inject
      */
     protected $propertyMapper;
 
     /**
-     * @var \TYPO3\Flow\Reflection\ReflectionService
+     * @var \Neos\Flow\Reflection\ReflectionService
      * @Flow\Inject
      */
     protected $reflectionService;
