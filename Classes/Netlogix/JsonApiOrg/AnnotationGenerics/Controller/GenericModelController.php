@@ -9,6 +9,8 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Controller;
  * source code.
  */
 
+use Neos\Flow\Mvc\Controller\Argument;
+use Neos\Utility\ObjectAccess;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\WriteModelInterface;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\ReadModelInterface;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Repository\GenericModelRepositoryInterface;
@@ -161,8 +163,14 @@ class GenericModelController extends ApiController
         if (!$this->arguments->hasArgument('resource')) {
             return;
         }
-        $resourceArgument = $this->arguments->getArgument('resource');
-        $resourceArgument->setDataType($this->getModelClassNameForResourceType($typeValue));
+
+        $argumentTemplate = $this->arguments->getArgument('resource');
+        /** @var Argument $newArgument */
+        $newArgument = $this->objectManager->get(get_class($argumentTemplate), $argumentTemplate->getName(), $this->getModelClassNameForResourceType($typeValue));
+        foreach (ObjectAccess::getSettablePropertyNames($newArgument) as $propertyName) {
+            ObjectAccess::setProperty($newArgument, $propertyName, ObjectAccess::getProperty($argumentTemplate, $propertyName));
+        }
+        $this->arguments['resource'] = $newArgument;
     }
 
     /**
