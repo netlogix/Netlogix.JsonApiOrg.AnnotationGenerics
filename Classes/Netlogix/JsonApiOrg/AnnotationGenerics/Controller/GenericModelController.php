@@ -9,15 +9,16 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Controller;
  * source code.
  */
 
+use Neos\Flow\Annotations as Flow;
 use Neos\Flow\Mvc\Controller\Argument;
+use Neos\Flow\ObjectManagement\Exception\UnknownObjectException;
 use Neos\Utility\ObjectAccess;
-use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\WriteModelInterface;
+use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\Arguments\Page;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\ReadModelInterface;
+use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\WriteModelInterface;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Repository\GenericModelRepositoryInterface;
 use Netlogix\JsonApiOrg\Controller\ApiController;
 use Netlogix\JsonApiOrg\Resource\Information\ExposableTypeMapInterface;
-use Neos\Flow\Annotations as Flow;
-use Neos\Flow\ObjectManagement\Exception\UnknownObjectException;
 
 /**
  * An action controller dealing with jsonapi.org data structures.
@@ -40,15 +41,27 @@ class GenericModelController extends ApiController
     }
 
     /**
+     * Allow creation of resources in createAction()
+     *
+     * @return void
+     */
+    protected function initializeListAction()
+    {
+        $propertyMappingConfiguration = $this->arguments['page']->getPropertyMappingConfiguration();
+        $propertyMappingConfiguration->allowAllProperties();
+    }
+
+    /**
      * @param array $filter
      * @param string $resourceType
+     * @param Page $page
      * @return string|null
      */
-    public function listAction(array $filter = [], $resourceType = '')
+    public function listAction(array $filter = [], $resourceType = '', Page $page = null)
     {
         try {
             $repository = $this->getRepositoryForResourceType($resourceType);
-        } catch (UnknownObjectException $e)  {
+        } catch (UnknownObjectException $e) {
             $this->response->setStatus(400);
             $this->response->setHeader('Content-Type', current($this->supportedMediaTypes));
             $result = ['errors' => [
@@ -58,7 +71,7 @@ class GenericModelController extends ApiController
             return json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
         }
 
-        $result = $repository->findByFilter($filter);
+        $result = $repository->findByFilter($filter, $page);
         $topLevel = $this->relationshipIterator->createTopLevel($result);
         $this->view->assign('value', $topLevel);
     }

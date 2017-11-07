@@ -14,8 +14,10 @@ use Neos\Flow\Persistence\QueryResultInterface;
 use Neos\Flow\Persistence\RepositoryInterface;
 use Neos\Flow\Annotations as Flow;
 use Neos\Flow\Property\PropertyMappingConfiguration;
+use Neos\Utility\ObjectAccess;
 use Neos\Utility\TypeHandling;
 use Doctrine\ORM\Mapping as ORM;
+use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\Arguments\Page;
 
 /**
  * @var $this RepositoryInterface|FindByFilterTrait
@@ -45,9 +47,10 @@ trait FindByFilterTrait
      * the corresponding value the required value.
      *
      * @param array $filter
+     * @param Page $page
      * @return QueryResultInterface
      */
-    public function findByFilter(array $filter = [])
+    public function findByFilter(array $filter = [], Page $page = null)
     {
         /** @var QueryInterface $query */
         $query = $this->createQuery();
@@ -64,6 +67,13 @@ trait FindByFilterTrait
 
         if (count($logicalAnd)) {
             $query->matching($query->logicalAnd($logicalAnd));
+        }
+
+        if ($page) {
+            $query->setLimit($page->getSize());
+            if ($page->getOffset()) {
+                $query->setOffset($page->getOffset());
+            }
         }
 
         return $query->execute();
