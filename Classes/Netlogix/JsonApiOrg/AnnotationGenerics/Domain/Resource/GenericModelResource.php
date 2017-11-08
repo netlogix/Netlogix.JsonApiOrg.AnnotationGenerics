@@ -9,12 +9,11 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Resource;
  * source code.
  */
 
+use Neos\Flow\Annotations as Flow;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Configuration\ConfigurationProvider;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\GenericModelInterface;
 use Netlogix\JsonApiOrg\Domain\Dto\AbstractResource;
-use Netlogix\JsonApiOrg\Schema\Relationships;
 use Netlogix\JsonApiOrg\Resource\Information\ResourceInformationInterface;
-use Neos\Flow\Annotations as Flow;
 
 class GenericModelResource extends AbstractResource
 {
@@ -23,6 +22,8 @@ class GenericModelResource extends AbstractResource
      * @Flow\Inject
      */
     protected $configurationProvider;
+
+    protected $identityAttributes = [];
 
     /**
      * @var GenericModelInterface
@@ -37,13 +38,14 @@ class GenericModelResource extends AbstractResource
         $settings = $this->configurationProvider->getSettingsForType($this->getPayload());
         $this->attributesToBeApiExposed = $settings['attributesToBeApiExposed'];
         $this->relationshipsToBeApiExposed = $settings['relationshipsToBeApiExposed'];
+        $this->identityAttributes = $settings['identityAttributes'];
     }
 
     /**
      * @param GenericModelInterface $payload
      * @param ResourceInformationInterface $resourceInformation
      */
-    public function __construct(GenericModelInterface $payload, ResourceInformationInterface $resourceInformation = NULL)
+    public function __construct(GenericModelInterface $payload, ResourceInformationInterface $resourceInformation = null)
     {
         parent::__construct($payload, $resourceInformation);
     }
@@ -69,6 +71,18 @@ class GenericModelResource extends AbstractResource
     public function getPayload()
     {
         return parent::getPayload();
+    }
+
+    public function getId()
+    {
+        if (!$this->identityAttributes) {
+            return parent::getId();
+        }
+        $payload = $this->getPayload();
+        $result = join("|", array_map(function($identityAttribute) use ($payload) {
+            return \Neos\Utility\ObjectAccess::getProperty($payload, $identityAttribute);
+        }, $this->identityAttributes));
+        return $result;
     }
 
 }

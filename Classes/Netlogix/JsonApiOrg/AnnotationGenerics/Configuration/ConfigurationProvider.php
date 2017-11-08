@@ -9,14 +9,13 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Configuration;
  * source code.
  */
 
-use Netlogix\JsonApiOrg\AnnotationGenerics\Annotations as JsonApi;
-use Netlogix\JsonApiOrg\Resource\Information\ExposableTypeMapInterface;
-use Netlogix\JsonApiOrg\Resource\Information\ResourceMapper;
-use Netlogix\JsonApiOrg\Schema\Relationships;
 use Neos\Flow\Annotations as Flow;
 use Neos\Flow\Reflection\ReflectionService;
 use Neos\Utility\Exception\InvalidTypeException;
 use Neos\Utility\TypeHandling;
+use Netlogix\JsonApiOrg\AnnotationGenerics\Annotations as JsonApi;
+use Netlogix\JsonApiOrg\Resource\Information\ResourceMapper;
+use Netlogix\JsonApiOrg\Schema\Relationships;
 
 /**
  * @Flow\Scope("singleton")
@@ -58,6 +57,7 @@ class ConfigurationProvider
         'private' => false,
         'attributesToBeApiExposed' => [],
         'relationshipsToBeApiExposed' => [],
+        'identityAttributes' => [],
     ];
 
     /**
@@ -106,11 +106,17 @@ class ConfigurationProvider
     {
         $flatType = trim(strrchr($type, '\\'), '\\');
 
+        $identityAttributes = [];
+
         foreach ($this->reflectionService->getPropertyNamesByAnnotation($type, JsonApi\ExposeProperty::class) as $propertyName) {
             /** @var JsonApi\ExposeProperty $annotation */
             $annotation = $this->reflectionService->getPropertyAnnotation($type, $propertyName, JsonApi\ExposeProperty::class);
             $targetType = $this->reflectionService->getPropertyTagValues($type, $propertyName, 'var')[0];
             $settings = $this->applyAnnotationBasedConfigurationForProperty($propertyName, $annotation, $targetType, $settings);
+        }
+
+        foreach ($this->reflectionService->getPropertyNamesByAnnotation($type, JsonApi\Identity::class) as $propertyName) {
+            $settings['identityAttributes'][$propertyName] = $propertyName;
         }
 
         foreach (get_class_methods($type) as $methodName) {
@@ -120,11 +126,16 @@ class ConfigurationProvider
 
             /** @var JsonApi\ExposeProperty $annotation */
             $annotation = $this->reflectionService->getMethodAnnotation($type, $methodName, JsonApi\ExposeProperty::class);
-            if ($annotation === null) {
-                continue;
+            if ($annotation !== null) {
+                $targetType = $this->reflectionService->getMethodTagsValues($type, $methodName)['return'][0];
+                $settings = $this->applyAnnotationBasedConfigurationForProperty(lcfirst(ltrim($methodName, 'getisha')), $annotation, $targetType, $settings);
             }
-            $targetType = $this->reflectionService->getMethodTagsValues($type, $methodName)['return'][0];
-            $settings = $this->applyAnnotationBasedConfigurationForProperty(lcfirst(ltrim($methodName, 'getisha')), $annotation, $targetType, $settings);
+
+            /** @var JsonApi\Identity $annotation */
+            $annotation = $this->reflectionService->getMethodAnnotation($type, $methodName, JsonApi\Identity::class);
+            if ($annotation !== null) {
+                $settings['identityAttributes'][lcfirst(ltrim($methodName, 'getisha'))] = lcfirst(ltrim($methodName, 'getisha'));
+            }
         }
 
         /** @var JsonApi\ExposeType $annotation */
@@ -155,7 +166,8 @@ class ConfigurationProvider
      * @param array $settings
      * @return array
      */
-    protected function applyAnnotationBasedConfigurationForProperty($propertyName, $annotation, $type, array $settings) {
+    protected function applyAnnotationBasedConfigurationForProperty($propertyName, $annotation, $type, array $settings)
+    {
         $targetType = TypeHandling::parseType($type);
         $isCollection = (bool)$targetType['elementType'];
         $elementType = $isCollection ? $targetType['elementType'] : $targetType['type'];
