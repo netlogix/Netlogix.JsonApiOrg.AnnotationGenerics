@@ -97,13 +97,26 @@ class GenericModelController extends ApiController
     }
 
     /**
+     * Allow creation of resources in createAction()
+     *
+     * @return void
+     */
+    protected function initializeShowRelatedAction()
+    {
+        $propertyMappingConfiguration = $this->arguments['page']->getPropertyMappingConfiguration();
+        $propertyMappingConfiguration->allowAllProperties();
+    }
+
+    /**
      * @param ReadModelInterface $resource
      * @param string $relationshipName
+     * @param Page $page
      */
-    public function showRelatedAction(ReadModelInterface $resource, $relationshipName)
+    public function showRelatedAction(ReadModelInterface $resource, $relationshipName, Page $page = null)
     {
         $resourceResource = $this->findResourceResource($resource);
         $relationship = $resourceResource->getPayloadProperty($relationshipName);
+        $relationship = $this->applyPagination($relationship, $page);
         $topLevel = $this->relationshipIterator->createTopLevel($relationship);
         $this->view->assign('value', $topLevel);
     }
@@ -194,5 +207,33 @@ class GenericModelController extends ApiController
     {
         $resourceInformation = $this->resourceMapper->findResourceInformation($resource);
         return $resourceInformation->getResource($resource);
+    }
+
+    protected function applyPagination($objects, Page $page = null)
+    {
+        if (!is_object($page)) {
+            return $objects;
+        }
+
+        if (is_object($objects) && $objects instanceof \Neos\Flow\Persistence\QueryResultInterface) {
+            $query = $objects->getQuery();
+            $query->setLimit($page->getSize());
+
+            if ($page->getOffset()) {
+                $query->setOffset($page->getOffset());
+            }
+            return $query->execute();
+        }
+        if (is_object($objects) && $objects instanceof \ArrayObject) {
+            $objects = $objects->getArrayCopy();
+        } elseif (is_object($objects) && is_callable([$objects, 'toArray'])) {
+            $objects = $objects->toArray();
+        }
+
+        if (is_array($objects)) {
+            return array_slice((array)$objects, $page->getNumber(), $page->getSize());
+        } else {
+            return $objects;
+        }
     }
 }
