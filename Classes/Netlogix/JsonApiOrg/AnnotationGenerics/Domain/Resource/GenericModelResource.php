@@ -79,7 +79,7 @@ class GenericModelResource extends AbstractResource
             return parent::getId();
         }
         $payload = $this->getPayload();
-        $result = join("|", array_map(function($identityAttribute) use ($payload) {
+        $result = join("|", array_map(function ($identityAttribute) use ($payload) {
             return \Neos\Utility\ObjectAccess::getProperty($payload, $identityAttribute);
         }, $this->identityAttributes));
         return $result;
