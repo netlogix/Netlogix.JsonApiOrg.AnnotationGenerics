@@ -22,6 +22,11 @@ class Page
     protected $size = 20;
 
     /**
+     * @var bool
+     */
+    protected $valid = true;
+
+    /**
      * @param int $number
      * @param int $size
      */
@@ -57,5 +62,15 @@ class Page
     public function getOffset()
     {
         return $this->getSize() * $this->getNumber();
+    }
+
+    public function markAsInvalid()
+    {
+        $this->valid = false;
+    }
+
+    public function isValid()
+    {
+        return $this->valid;
     }
 }
