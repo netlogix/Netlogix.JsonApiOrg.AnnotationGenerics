@@ -11,6 +11,7 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Resource;
 
 use Neos\Flow\Annotations as Flow;
 use Neos\Flow\Http\Uri;
+use Neos\Flow\Mvc\Exception\NoMatchingRouteException;
 use Neos\Utility\ObjectAccess;
 use Neos\Utility\TypeHandling;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Configuration\ConfigurationProvider;
@@ -140,14 +141,18 @@ class GenericModelResourceInformation extends ResourceInformation implements Res
         $result = [];
         $relationshipType = $relationshipType ?: $this->getResource($payload)->getRelationshipsToBeApiExposed()[$relationshipName];
         if ($relationshipType === Relationships::RELATIONSHIP_TYPE_COLLECTION) {
-            $result['first'] = $this->getPublicRelatedUri($payload, $relationshipName);
-            $arguments = $result['first']->getArguments();
-            $arguments['page'] = [
-                'number' => 0,
-                'size' => 25,
-            ];
-            $result['first']->setQuery(http_build_query($arguments));
-            $result['first'] = (string)$result['first'];
+            try {
+                $result['first'] = $this->getPublicRelatedUri($payload, $relationshipName);
+                $arguments = $result['first']->getArguments();
+                $arguments['page'] = [
+                    'number' => 0,
+                    'size' => 25,
+                ];
+                $result['first']->setQuery(http_build_query($arguments));
+                $result['first'] = (string)$result['first'];
+            } catch (NoMatchingRouteException $e) {
+
+            }
         }
         return $result;
     }
