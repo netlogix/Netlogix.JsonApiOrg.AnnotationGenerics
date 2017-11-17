@@ -7,7 +7,7 @@
     ],
     "require": {
         "neos/flow": "~4.0.0",
-        "netlogix/jsonapiorg": "*"
+        "netlogix/jsonapiorg": "~4.0.0"
     },
     "suggest": [],
     "autoload": {
