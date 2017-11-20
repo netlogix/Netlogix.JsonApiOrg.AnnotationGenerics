@@ -9,19 +9,24 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Resource;
  * source code.
  */
 
+use Neos\Flow\Annotations as Flow;
+use Neos\Flow\Http\Uri;
+use Neos\Flow\Mvc\Exception\NoMatchingRouteException;
+use Neos\Utility\ObjectAccess;
+use Neos\Utility\TypeHandling;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Configuration\ConfigurationProvider;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Controller\GenericModelController;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\GenericModelInterface;
+use Netlogix\JsonApiOrg\Resource\Information\LinksAwareResourceInformationInterface;
+use Netlogix\JsonApiOrg\Resource\Information\MetaAwareResourceInformationInterface;
 use Netlogix\JsonApiOrg\Resource\Information\ResourceInformation;
 use Netlogix\JsonApiOrg\Resource\Information\ResourceInformationInterface;
-use TYPO3\Flow\Annotations as Flow;
-use TYPO3\Flow\Http\Uri;
-use TYPO3\Flow\Utility\TypeHandling;
+use Netlogix\JsonApiOrg\Schema\Relationships;
 
 /**
  * @Flow\Scope("singleton")
  */
-class GenericModelResourceInformation extends ResourceInformation implements ResourceInformationInterface
+class GenericModelResourceInformation extends ResourceInformation implements ResourceInformationInterface, LinksAwareResourceInformationInterface, MetaAwareResourceInformationInterface
 {
     const DOMAIN_MODEL_PATTERN = '%(?<vendor>[^\\\\]+)\\\\(?<package>.*)\\\\(?<subPackage>[^\\\\]+)\\\\Domain\\\\(Model|Command)\\\\(?<resourceType>.+)$%i';
 
@@ -125,4 +130,55 @@ class GenericModelResourceInformation extends ResourceInformation implements Res
 
         return new Uri($uri);
     }
+
+    public function getLinksForPayload($payload)
+    {
+        return [];
+    }
+
+    public function getLinksForRelationship($payload, $relationshipName, $relationshipType = null)
+    {
+        $result = [];
+        $relationshipType = $relationshipType ?: $this->getResource($payload)->getRelationshipsToBeApiExposed()[$relationshipName];
+        if ($relationshipType === Relationships::RELATIONSHIP_TYPE_COLLECTION) {
+            try {
+                $result['first'] = $this->getPublicRelatedUri($payload, $relationshipName);
+                $arguments = $result['first']->getArguments();
+                $arguments['page'] = [
+                    'number' => 0,
+                    'size' => 25,
+                ];
+                $result['first']->setQuery(http_build_query($arguments));
+                $result['first'] = (string)$result['first'];
+            } catch (NoMatchingRouteException $e) {
+
+            }
+        }
+        return $result;
+    }
+
+    public function getMetaForPayload($payload)
+    {
+        return [];
+    }
+
+    public function getMetaForRelationship($payload, $relationshipName, $relationshipType = null)
+    {
+        $result = [];
+        $relationshipType = $relationshipType ?: $this->getResource($payload)->getRelationshipsToBeApiExposed()[$relationshipName];
+        if ($relationshipType === Relationships::RELATIONSHIP_TYPE_COLLECTION) {
+            try {
+                $data = ObjectAccess::getProperty($payload, $relationshipName);
+                if ($data !== null && $data !== false) {
+                    $result['page'] = [
+                        'total' => count($data),
+                    ];
+                }
+            } catch (\Exception $e) {
+            }
+
+        }
+        return $result;
+    }
+
 }

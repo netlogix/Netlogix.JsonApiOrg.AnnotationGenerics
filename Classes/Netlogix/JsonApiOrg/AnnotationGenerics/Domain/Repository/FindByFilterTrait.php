@@ -9,13 +9,14 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Repository;
  * source code.
  */
 
-use TYPO3\Flow\Persistence\QueryInterface;
-use TYPO3\Flow\Persistence\QueryResultInterface;
-use TYPO3\Flow\Persistence\RepositoryInterface;
-use TYPO3\Flow\Annotations as Flow;
-use TYPO3\Flow\Property\PropertyMappingConfiguration;
-use TYPO3\Flow\Utility\TypeHandling;
 use Doctrine\ORM\Mapping as ORM;
+use Neos\Flow\Annotations as Flow;
+use Neos\Flow\Persistence\QueryInterface;
+use Neos\Flow\Persistence\QueryResultInterface;
+use Neos\Flow\Persistence\RepositoryInterface;
+use Neos\Flow\Property\PropertyMappingConfiguration;
+use Neos\Utility\TypeHandling;
+use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\Arguments\Page;
 
 /**
  * @var $this RepositoryInterface|FindByFilterTrait
@@ -23,19 +24,19 @@ use Doctrine\ORM\Mapping as ORM;
 trait FindByFilterTrait
 {
     /**
-     * @var \TYPO3\Flow\Property\TypeConverter\ObjectConverter
+     * @var \Neos\Flow\Property\TypeConverter\ObjectConverter
      * @Flow\Inject
      */
     protected $objectConverter;
 
     /**
-     * @var \TYPO3\Flow\Property\PropertyMapper
+     * @var \Neos\Flow\Property\PropertyMapper
      * @Flow\Inject
      */
     protected $propertyMapper;
 
     /**
-     * @var \TYPO3\Flow\Reflection\ReflectionService
+     * @var \Neos\Flow\Reflection\ReflectionService
      * @Flow\Inject
      */
     protected $reflectionService;
@@ -45,9 +46,10 @@ trait FindByFilterTrait
      * the corresponding value the required value.
      *
      * @param array $filter
+     * @param Page $page
      * @return QueryResultInterface
      */
-    public function findByFilter(array $filter = [])
+    public function findByFilter(array $filter = [], Page $page = null)
     {
         /** @var QueryInterface $query */
         $query = $this->createQuery();
@@ -64,6 +66,13 @@ trait FindByFilterTrait
 
         if (count($logicalAnd)) {
             $query->matching($query->logicalAnd($logicalAnd));
+        }
+
+        if ($page) {
+            $query->setLimit($page->getSize());
+            if ($page->getOffset()) {
+                $query->setOffset($page->getOffset());
+            }
         }
 
         return $query->execute();
@@ -112,6 +121,8 @@ trait FindByFilterTrait
                     return $this->addFilterConstraintForNumericProperty($query, $propertyPath, $value);
                 case 'DateTime':
                     return $this->addFilterConstraintForDateTimeProperty($query, $propertyPath, $value);
+                default:
+                    return $this->addFilterConstraintForUnrecognizedProperty($query, $propertyPath, $value, $type['type']);
 
             }
         }
@@ -247,12 +258,28 @@ trait FindByFilterTrait
     }
 
     /**
+     * The type of this property isn't scalar. So it needs custom mapping.
+     * Default to "equals" since we don't know what can be done with this type.
+     *
+     * @param QueryInterface $query
+     * @param string $propertyPath
+     * @param array mixed $value
+     * @param string $type
+     * @return object
+     */
+    protected function addFilterConstraintForUnrecognizedProperty(QueryInterface $query, $propertyPath, $value, $type)
+    {
+        return $query->equals($propertyPath, $value);
+    }
+
+    /**
      * @param QueryInterface $query
      * @param string $propertyPath
      * @param string $value
      * @return object
      */
-    protected function addLikeFilterConstraintForProperty(QueryInterface $query, $propertyPath, $value) {
+    protected function addLikeFilterConstraintForProperty(QueryInterface $query, $propertyPath, $value)
+    {
         $searchValue = trim($value, '*');
         $constraints = [
             $query->equals($propertyPath, $searchValue, false),

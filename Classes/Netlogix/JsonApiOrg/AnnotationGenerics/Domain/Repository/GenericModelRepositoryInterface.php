@@ -9,9 +9,10 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Repository;
  * source code.
  */
 
-use TYPO3\Flow\Annotations as Flow;
-use TYPO3\Flow\Persistence\QueryResultInterface;
-use TYPO3\Flow\Persistence\RepositoryInterface;
+use Neos\Flow\Annotations as Flow;
+use Neos\Flow\Persistence\QueryResultInterface;
+use Neos\Flow\Persistence\RepositoryInterface;
+use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\Arguments\Page;
 
 interface GenericModelRepositoryInterface extends RepositoryInterface
 {
@@ -20,7 +21,8 @@ interface GenericModelRepositoryInterface extends RepositoryInterface
      * the corresponding value the required value.
      *
      * @param array $filter
+     * @param Page $page
      * @return QueryResultInterface
      */
-    public function findByFilter(array $filter = []);
+    public function findByFilter(array $filter = [], Page $page = null);
 }

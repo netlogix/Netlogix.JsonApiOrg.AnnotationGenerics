@@ -9,16 +9,18 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Controller;
  * source code.
  */
 
+use Neos\Flow\Annotations as Flow;
+use Neos\Flow\Mvc\Controller\ActionController;
+use Neos\Flow\Mvc\Exception\NoMatchingRouteException;
+use Neos\Flow\ObjectManagement\ObjectManagerInterface;
+use Neos\Flow\Package\PackageManagerInterface;
+use Neos\Flow\Persistence\Exception\UnknownObjectException;
+use Neos\Flow\Property\Exception\FormatNotSupportedException;
+use Neos\Flow\Reflection\ReflectionService;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Annotations as JsonApi;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Configuration\ConfigurationProvider;
 use Netlogix\JsonApiOrg\Resource\Information\ResourceMapper;
 use Netlogix\JsonApiOrg\View\JsonView;
-use TYPO3\Flow\Annotations as Flow;
-use TYPO3\Flow\Mvc\Controller\ActionController;
-use TYPO3\Flow\Object\ObjectManagerInterface;
-use TYPO3\Flow\Package\PackageManagerInterface;
-use TYPO3\Flow\Property\Exception\FormatNotSupportedException;
-use TYPO3\Flow\Reflection\ReflectionService;
 
 /**
  * @Flow\Scope("singleton")
@@ -120,8 +122,7 @@ class EndpointDiscoveryController extends ActionController
         $result = $this->resultTemplate;
         $packageKeys = $this->packageKeysTemplate;
 
-        foreach ($this->reflectionService->getClassNamesByAnnotation(JsonApi\ExposeType::class) as $className)
-        {
+        foreach ($this->reflectionService->getClassNamesByAnnotation(JsonApi\ExposeType::class) as $className) {
             $packageKey = str_replace('\\', '.', current(preg_split('%\\\\(Domain|Model)\\\\%i', $className)));
             $packageKeys[$packageKey] = $packageKey;
 
@@ -134,9 +135,12 @@ class EndpointDiscoveryController extends ActionController
                 }
                 $type = $this->resourceMapper->getDataIdentifierForPayload($resource)['type'];
                 $uri = $this->buildUriForDummyResource($resource);
-            } catch (FormatNotSupportedException $e) {}
+            } catch (FormatNotSupportedException $e) {
+            } catch (NoMatchingRouteException $e) {
+            } catch (UnknownObjectException $e) {
+            }
 
-            if (!$type) {
+            if (!$type || !$uri) {
                 continue;
             }
 
@@ -151,10 +155,16 @@ class EndpointDiscoveryController extends ActionController
         }
 
         foreach ($packageKeys as $packageKey) {
-            $result['meta']['api-version'][$packageKey] = $this->packageManager->getPackage($packageKey)->getPackageMetaData()->getVersion();
+            $result['meta']['api-version'][$packageKey] = $this->packageManager->getPackage($packageKey)->getInstalledVersion();
+            if ($result['meta']['api-version'][$packageKey] === null) {
+                $result['meta']['api-version'][$packageKey] = 'local';
+            }
         }
 
-        sort($result['links']);
+        usort($result['links'], function($a, $b) {
+            return $a['meta']['resourceType'] <=> $b['meta']['resourceType'];
+        });
+        ksort($result['meta']['api-version']);
         return $result;
     }
 
@@ -176,6 +186,7 @@ class EndpointDiscoveryController extends ActionController
         $settings = $this->configurationProvider->getSettingsForType($resource);
 
         $resourceInformation = $this->resourceMapper->findResourceInformation($resource);
+
         $controllerArguments = $resourceInformation->getResourceControllerArguments($resource);
         unset($controllerArguments[$settings['argumentName']]);
 
