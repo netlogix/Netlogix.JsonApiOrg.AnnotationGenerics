@@ -37,7 +37,9 @@ class GenericModelResource extends AbstractResource
     {
         $settings = $this->configurationProvider->getSettingsForType($this->getPayload());
         $this->attributesToBeApiExposed = $settings['attributesToBeApiExposed'];
+        ksort($this->attributesToBeApiExposed);
         $this->relationshipsToBeApiExposed = $settings['relationshipsToBeApiExposed'];
+        ksort($this->relationshipsToBeApiExposed);
         $this->identityAttributes = $settings['identityAttributes'];
     }
 
