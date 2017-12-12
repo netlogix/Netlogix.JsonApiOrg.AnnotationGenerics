@@ -176,10 +176,10 @@ class GenericModelController extends ApiController
     /**
      * @inheritdoc
      */
-    protected function mapRequestArgumentsToControllerArguments()
+    protected function initializeActionMethodArguments()
     {
+        parent::initializeActionMethodArguments();
         $this->determineResourceArgumentType();
-        parent::mapRequestArgumentsToControllerArguments();
     }
 
     /**
@@ -204,7 +204,10 @@ class GenericModelController extends ApiController
         /** @var Argument $newArgument */
         $newArgument = $this->objectManager->get(get_class($argumentTemplate), $argumentTemplate->getName(), $this->getModelClassNameForResourceType($typeValue));
         foreach (ObjectAccess::getSettablePropertyNames($newArgument) as $propertyName) {
-            ObjectAccess::setProperty($newArgument, $propertyName, ObjectAccess::getProperty($argumentTemplate, $propertyName));
+            $propertyValue = ObjectAccess::getProperty($argumentTemplate, $propertyName);
+            if ($propertyValue !== ObjectAccess::getProperty($newArgument, $propertyName)) {
+                ObjectAccess::setProperty($newArgument, $propertyName, $propertyValue);
+            }
         }
         $this->arguments['resource'] = $newArgument;
     }
