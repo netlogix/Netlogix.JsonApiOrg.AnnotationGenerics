@@ -1,2 +1,12 @@
 Netlogix\JsonApiOrg\Resource\Information\ExposableTypeMapInterface:
   className: 'Netlogix\JsonApiOrg\AnnotationGenerics\Resource\Information\ExposableTypeMap'
+
+Netlogix\JsonApiOrg\AnnotationGenerics\Controller\EndpointDiscoveryController:
+  properties:
+    resultsCache:
+      object:
+        factoryObjectName: Neos\Flow\Cache\CacheManager
+        factoryMethodName: getCache
+        arguments:
+          1:
+            value: Netlogix_JsonApiOrg_AnnotationGenerics_EndpointDiscovery

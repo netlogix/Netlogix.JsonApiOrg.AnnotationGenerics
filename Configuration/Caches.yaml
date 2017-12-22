@@ -1,0 +1,6 @@
+Netlogix_JsonApiOrg_AnnotationGenerics_EndpointDiscovery:
+  frontend: Neos\Cache\Frontend\VariableFrontend
+  backend: Neos\Cache\Backend\FileBackend
+  backendOptions:
+    defaultLifetime: 86000
+  persistent: false
