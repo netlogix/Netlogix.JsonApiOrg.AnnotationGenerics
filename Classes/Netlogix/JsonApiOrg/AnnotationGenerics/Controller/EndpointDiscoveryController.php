@@ -9,6 +9,7 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Controller;
  * source code.
  */
 
+use Neos\Cache\Frontend\VariableFrontend;
 use Neos\Flow\Annotations as Flow;
 use Neos\Flow\Mvc\Controller\ActionController;
 use Neos\Flow\Mvc\Exception\NoMatchingRouteException;
@@ -27,6 +28,11 @@ use Netlogix\JsonApiOrg\View\JsonView;
  */
 class EndpointDiscoveryController extends ActionController
 {
+    /**
+     * @var VariableFrontend
+     */
+    protected $resultsCache;
+
     /**
      * @var array
      */
@@ -94,21 +100,27 @@ class EndpointDiscoveryController extends ActionController
      */
     public function indexAction($packageKey = null)
     {
-        $result = $this->getResultJson();
-        if ($packageKey) {
-            foreach ($result['links'] as $key => $link) {
-                if (stripos($link['meta']['packageKey'] . '.', $packageKey . '.') !== 0) {
-                    unset($result['links'][$key]);
+        $cacheIdentifier = md5($packageKey);
+        if ($this->resultsCache->has($cacheIdentifier)) {
+            $result = $this->resultsCache->get($cacheIdentifier);
+        } else {
+            $result = $this->getResultJson();
+            if ($packageKey) {
+                foreach ($result['links'] as $key => $link) {
+                    if (stripos($link['meta']['packageKey'] . '.', $packageKey . '.') !== 0) {
+                        unset($result['links'][$key]);
+                    }
+                }
+                foreach ($result['meta']['api-version'] as $key => $link) {
+                    if (in_array($key, $this->packageKeysTemplate)) {
+                        continue;
+                    }
+                    if (stripos($key . '.', $packageKey . '.') !== 0) {
+                        unset($result['meta']['api-version'][$key]);
+                    }
                 }
             }
-            foreach ($result['meta']['api-version'] as $key => $link) {
-                if (in_array($key, $this->packageKeysTemplate)) {
-                    continue;
-                }
-                if (stripos($key . '.', $packageKey . '.') !== 0) {
-                    unset($result['meta']['api-version'][$key]);
-                }
-            }
+            $this->resultsCache->set($cacheIdentifier, $result);
         }
 
         $this->view->assign('value', $result);
@@ -161,7 +173,7 @@ class EndpointDiscoveryController extends ActionController
             }
         }
 
-        usort($result['links'], function($a, $b) {
+        usort($result['links'], function ($a, $b) {
             return $a['meta']['resourceType'] <=> $b['meta']['resourceType'];
         });
         ksort($result['meta']['api-version']);
