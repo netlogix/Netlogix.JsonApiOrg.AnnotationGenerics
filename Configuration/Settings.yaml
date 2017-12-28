@@ -1,4 +1,7 @@
 Netlogix:
   JsonApiOrg:
 
+    endpointDiscovery:
+      additionalLinks: []
+
     exposingConfiguration: []
