@@ -50,6 +50,12 @@ class EndpointDiscoveryController extends ActionController
     );
 
     /**
+     * @var array
+     * @Flow\InjectConfiguration(package="Netlogix.JsonApiOrg", path="endpointDiscovery.additionalLinks")
+     */
+    protected $additionalLinks = [];
+
+    /**
      * @var ReflectionService
      * @Flow\Inject
      */
@@ -165,6 +171,8 @@ class EndpointDiscoveryController extends ActionController
                 ],
             ];
         }
+
+        $result['links'] = array_merge($result['links'], $this->additionalLinks);
 
         foreach ($packageKeys as $packageKey) {
             $result['meta']['api-version'][$packageKey] = $this->packageManager->getPackage($packageKey)->getInstalledVersion();
