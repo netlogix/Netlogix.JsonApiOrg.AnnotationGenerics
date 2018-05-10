@@ -1,19 +1,24 @@
 {
     "name": "netlogix/jsonapiorg-annotationgenerics",
     "type": "neos-package",
-    "homepage": "http://www.netlogix.de",
-    "license": [
-        "MIT"
-    ],
+    "homepage": "http://websolutions.netlogix.de/",
+    "license": ["MIT"],
     "require": {
-        "neos/flow": "~4.0.0",
+        "neos/flow": "*",
         "netlogix/jsonapiorg": "~4.0.0"
     },
-    "suggest": [],
     "autoload": {
         "psr-0": {
             "Netlogix\\JsonApiOrg\\AnnotationGenerics": "Classes"
         }
+    },
+    "autoload-dev": {
+        "psr-0": {
+            "Netlogix\\JsonApiOrg\\AnnotationGenerics\\Tests": "Tests"
+        }
+    },
+    "replace": {
+        "netlogix/jsonapiorg-annotationgenerics": "self.version"
     },
     "extra": {
         "applied-flow-migrations": [
