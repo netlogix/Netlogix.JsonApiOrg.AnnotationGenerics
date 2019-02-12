@@ -46,7 +46,7 @@ class ExposableTypeMap extends \Netlogix\JsonApiOrg\Resource\Information\Exposab
                 if (!$type) {
                     $typeComponents = preg_split('%\\\\Domain\\\\(Model|Command)\\\\%i', $className, 2);
                     $typeComponents[0] = explode('\\', $typeComponents[0]);
-                    while ($typeComponents[0] && !$this->packageManager->isPackageActive(join('.', $typeComponents[0]))) {
+                    while ($typeComponents[0] && !$this->packageManager->isPackageAvailable(join('.', $typeComponents[0]))) {
                         unset($typeComponents[0][count($typeComponents[0]) - 1]);
                     }
                     $type = strtolower(end($typeComponents[0]) . '/' . str_replace('\\', '.', $typeComponents[1]));
