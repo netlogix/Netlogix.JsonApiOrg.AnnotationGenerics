@@ -9,15 +9,15 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Controller;
  * source code.
  */
 
-use Neos\Cache\Frontend\VariableFrontend;
-use Neos\Flow\Annotations as Flow;
-use Neos\Flow\Mvc\Controller\ActionController;
-use Neos\Flow\Mvc\Exception\NoMatchingRouteException;
-use Neos\Flow\ObjectManagement\ObjectManagerInterface;
-use Neos\Flow\Package\PackageManagerInterface;
-use Neos\Flow\Persistence\Exception\UnknownObjectException;
-use Neos\Flow\Property\Exception\FormatNotSupportedException;
-use Neos\Flow\Reflection\ReflectionService;
+use TYPO3\Flow\Annotations as Flow;
+use TYPO3\Flow\Cache\Frontend\VariableFrontend;
+use TYPO3\Flow\Mvc\Controller\ActionController;
+use TYPO3\Flow\Mvc\Exception\NoMatchingRouteException;
+use TYPO3\Flow\Object\ObjectManagerInterface;
+use TYPO3\Flow\Package\PackageManagerInterface;
+use TYPO3\Flow\Persistence\Exception\UnknownObjectException;
+use TYPO3\Flow\Property\Exception\FormatNotSupportedException;
+use TYPO3\Flow\Reflection\ReflectionService;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Annotations as JsonApi;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Configuration\ConfigurationProvider;
 use Netlogix\JsonApiOrg\Resource\Information\ResourceMapper;
@@ -175,7 +175,7 @@ class EndpointDiscoveryController extends ActionController
         $result['links'] = array_merge($result['links'], $this->additionalLinks);
 
         foreach ($packageKeys as $packageKey) {
-            $result['meta']['api-version'][$packageKey] = $this->packageManager->getPackage($packageKey)->getInstalledVersion();
+            $result['meta']['api-version'][$packageKey] = $this->packageManager->getPackage($packageKey)->getPackageMetaData()->getVersion();
             if ($result['meta']['api-version'][$packageKey] === null) {
                 $result['meta']['api-version'][$packageKey] = 'local';
             }

@@ -9,12 +9,10 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Controller;
  * source code.
  */
 
-use Neos\Flow\Annotations as Flow;
-use Neos\Flow\Http\Uri;
-use Neos\Flow\Mvc\ActionRequest;
-use Neos\Flow\Mvc\Controller\Argument;
-use Neos\Flow\ObjectManagement\Exception\UnknownObjectException;
-use Neos\Utility\ObjectAccess;
+use TYPO3\Flow\Annotations as Flow;
+use TYPO3\Flow\Http\Uri;
+use TYPO3\Flow\Mvc\ActionRequest;
+use TYPO3\Flow\Mvc\Controller\Argument;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\Arguments\Page;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\ReadModelInterface;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\WriteModelInterface;
@@ -22,6 +20,8 @@ use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Repository\GenericModelReposit
 use Netlogix\JsonApiOrg\Controller\ApiController;
 use Netlogix\JsonApiOrg\Resource\Information\ExposableTypeMapInterface;
 use Netlogix\JsonApiOrg\Schema\TopLevel;
+use TYPO3\Flow\Object\Exception\UnknownObjectException;
+use TYPO3\Flow\Reflection\ObjectAccess;
 
 /**
  * An action controller dealing with jsonapi.org data structures.
@@ -99,7 +99,7 @@ class GenericModelController extends ApiController
     public function showRelationshipAction(ReadModelInterface $resource, $relationshipName)
     {
         $resourceResource = $this->findResourceResource($resource);
-        $relationship = \Neos\Utility\ObjectAccess::getProperty($resourceResource->getRelationships(), $relationshipName);
+        $relationship = ObjectAccess::getProperty($resourceResource->getRelationships(), $relationshipName);
         $this->view->assign('value', $relationship);
     }
 
@@ -228,7 +228,7 @@ class GenericModelController extends ApiController
             return $objects;
         }
 
-        if (is_object($objects) && $objects instanceof \Neos\Flow\Persistence\QueryResultInterface) {
+        if (is_object($objects) && $objects instanceof \TYPO3\Flow\Persistence\QueryResultInterface) {
             $query = clone $objects->getQuery();
             $query->setLimit($page->getSize());
 

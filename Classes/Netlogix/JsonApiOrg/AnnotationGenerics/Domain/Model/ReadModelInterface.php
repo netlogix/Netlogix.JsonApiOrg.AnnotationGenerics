@@ -9,7 +9,7 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model;
  * source code.
  */
 
-use Neos\Flow\Annotations as Flow;
+use TYPO3\Flow\Annotations as Flow;
 
 interface ReadModelInterface extends GenericModelInterface
 {

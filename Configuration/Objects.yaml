@@ -5,7 +5,7 @@ Netlogix\JsonApiOrg\AnnotationGenerics\Controller\EndpointDiscoveryController:
   properties:
     resultsCache:
       object:
-        factoryObjectName: Neos\Flow\Cache\CacheManager
+        factoryObjectName: TYPO3\Flow\Cache\CacheManager
         factoryMethodName: getCache
         arguments:
           1:

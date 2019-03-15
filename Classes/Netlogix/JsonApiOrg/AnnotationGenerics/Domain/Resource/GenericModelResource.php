@@ -9,11 +9,13 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Resource;
  * source code.
  */
 
-use Neos\Flow\Annotations as Flow;
+use TYPO3\Flow\Annotations as Flow;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Configuration\ConfigurationProvider;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\GenericModelInterface;
 use Netlogix\JsonApiOrg\Domain\Dto\AbstractResource;
 use Netlogix\JsonApiOrg\Resource\Information\ResourceInformationInterface;
+use TYPO3\Flow\Reflection\Exception\PropertyNotAccessibleException;
+use TYPO3\Flow\Reflection\ObjectAccess;
 
 class GenericModelResource extends AbstractResource
 {
@@ -55,7 +57,7 @@ class GenericModelResource extends AbstractResource
     /**
      * @param string $propertyName
      * @return mixed
-     * @throws \Neos\Utility\Exception\PropertyNotAccessibleException
+     * @throws PropertyNotAccessibleException
      */
     public function getPayloadProperty($propertyName)
     {
@@ -82,7 +84,7 @@ class GenericModelResource extends AbstractResource
         }
         $payload = $this->getPayload();
         $result = join("|", array_map(function ($identityAttribute) use ($payload) {
-            return \Neos\Utility\ObjectAccess::getProperty($payload, $identityAttribute);
+            return ObjectAccess::getProperty($payload, $identityAttribute);
         }, $this->identityAttributes));
         return $result;
     }

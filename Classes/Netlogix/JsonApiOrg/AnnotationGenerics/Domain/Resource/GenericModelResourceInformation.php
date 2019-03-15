@@ -9,11 +9,9 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Resource;
  * source code.
  */
 
-use Neos\Flow\Annotations as Flow;
-use Neos\Flow\Http\Uri;
-use Neos\Flow\Mvc\Exception\NoMatchingRouteException;
-use Neos\Utility\ObjectAccess;
-use Neos\Utility\TypeHandling;
+use TYPO3\Flow\Annotations as Flow;
+use TYPO3\Flow\Http\Uri;
+use TYPO3\Flow\Mvc\Exception\NoMatchingRouteException;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Configuration\ConfigurationProvider;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Controller\GenericModelController;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\GenericModelInterface;
@@ -22,6 +20,8 @@ use Netlogix\JsonApiOrg\Resource\Information\MetaAwareResourceInformationInterfa
 use Netlogix\JsonApiOrg\Resource\Information\ResourceInformation;
 use Netlogix\JsonApiOrg\Resource\Information\ResourceInformationInterface;
 use Netlogix\JsonApiOrg\Schema\Relationships;
+use TYPO3\Flow\Reflection\ObjectAccess;
+use TYPO3\Flow\Utility\TypeHandling;
 
 /**
  * @Flow\Scope("singleton")

@@ -11,9 +11,9 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Resource\Information;
 
 use Netlogix\JsonApiOrg\AnnotationGenerics\Annotations as JsonApi;
 use Netlogix\JsonApiOrg\Resource\Information\ExposableTypeMapInterface;
-use Neos\Flow\Annotations as Flow;
-use Neos\Flow\Package\PackageManagerInterface;
-use Neos\Flow\Reflection\ReflectionService;
+use TYPO3\Flow\Annotations as Flow;
+use TYPO3\Flow\Package\PackageManagerInterface;
+use TYPO3\Flow\Reflection\ReflectionService;
 
 /**
  * @Flow\Scope("singleton")

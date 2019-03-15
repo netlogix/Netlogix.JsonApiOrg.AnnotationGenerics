@@ -10,9 +10,9 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model;
  */
 
 use Doctrine\Common\Collections\Collection;
-use Neos\Flow\Annotations as Flow;
-use Neos\Utility\Exception\PropertyNotAccessibleException;
-use Neos\Utility\TypeHandling;
+use TYPO3\Flow\Annotations as Flow;
+use TYPO3\Flow\Reflection\Exception\PropertyNotAccessibleException;
+use TYPO3\Flow\Utility\TypeHandling;
 
 trait ArrayAccessPropertyReadTrait
 {

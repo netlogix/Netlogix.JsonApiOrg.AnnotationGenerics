@@ -1,6 +1,6 @@
 Netlogix_JsonApiOrg_AnnotationGenerics_EndpointDiscovery:
-  frontend: Neos\Cache\Frontend\VariableFrontend
-  backend: Neos\Cache\Backend\FileBackend
+  frontend: TYPO3\Flow\Cache\Frontend\VariableFrontend
+  backend: TYPO3\Flow\Cache\Backend\FileBackend
   backendOptions:
     defaultLifetime: 86000
   persistent: false

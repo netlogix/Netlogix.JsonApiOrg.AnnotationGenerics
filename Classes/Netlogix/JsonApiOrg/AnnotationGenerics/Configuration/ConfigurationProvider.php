@@ -9,13 +9,12 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Configuration;
  * source code.
  */
 
-use Neos\Flow\Annotations as Flow;
-use Neos\Flow\Reflection\ReflectionService;
-use Neos\Utility\Exception\InvalidTypeException;
-use Neos\Utility\TypeHandling;
+use TYPO3\Flow\Annotations as Flow;
+use TYPO3\Flow\Reflection\ReflectionService;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Annotations as JsonApi;
 use Netlogix\JsonApiOrg\Resource\Information\ResourceMapper;
 use Netlogix\JsonApiOrg\Schema\Relationships;
+use TYPO3\Flow\Utility\TypeHandling;
 
 /**
  * @Flow\Scope("singleton")
@@ -100,7 +99,6 @@ class ConfigurationProvider
      * @param string $type
      * @param array $settings
      * @return array
-     * @throws InvalidTypeException
      */
     protected function applyAnnotationBasedConfiguration($type, array $settings = [])
     {

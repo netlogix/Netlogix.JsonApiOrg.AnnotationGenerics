@@ -9,8 +9,8 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Repository;
  * source code.
  */
 
-use Neos\Flow\Annotations as Flow;
-use Neos\Flow\Persistence\Repository;
+use TYPO3\Flow\Annotations as Flow;
+use TYPO3\Flow\Persistence\Repository;
 
 abstract class GenericModelRepository extends Repository implements GenericModelRepositoryInterface
 {

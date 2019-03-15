@@ -10,13 +10,13 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Repository;
  */
 
 use Doctrine\ORM\Mapping as ORM;
-use Neos\Flow\Annotations as Flow;
-use Neos\Flow\Persistence\QueryInterface;
-use Neos\Flow\Persistence\QueryResultInterface;
-use Neos\Flow\Persistence\RepositoryInterface;
-use Neos\Flow\Property\PropertyMappingConfiguration;
-use Neos\Utility\TypeHandling;
+use TYPO3\Flow\Annotations as Flow;
+use TYPO3\Flow\Persistence\QueryInterface;
+use TYPO3\Flow\Persistence\QueryResultInterface;
+use TYPO3\Flow\Persistence\RepositoryInterface;
+use TYPO3\Flow\Property\PropertyMappingConfiguration;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\Arguments\Page;
+use TYPO3\Flow\Utility\TypeHandling;
 
 /**
  * @var $this RepositoryInterface|FindByFilterTrait
@@ -24,19 +24,19 @@ use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\Arguments\Page;
 trait FindByFilterTrait
 {
     /**
-     * @var \Neos\Flow\Property\TypeConverter\ObjectConverter
+     * @var \TYPO3\Flow\Property\TypeConverter\ObjectConverter
      * @Flow\Inject
      */
     protected $objectConverter;
 
     /**
-     * @var \Neos\Flow\Property\PropertyMapper
+     * @var \TYPO3\Flow\Property\PropertyMapper
      * @Flow\Inject
      */
     protected $propertyMapper;
 
     /**
-     * @var \Neos\Flow\Reflection\ReflectionService
+     * @var \TYPO3\Flow\Reflection\ReflectionService
      * @Flow\Inject
      */
     protected $reflectionService;
