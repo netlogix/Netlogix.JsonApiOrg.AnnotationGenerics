@@ -1,15 +1,12 @@
 <?php
+
 namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model;
 
 /*
- * This file is part of the Netlogix.JsonApiOrg.AnnotationGenerics package.
- *
- * This package is Open Source Software. For the full copyright and license
- * information, please view the LICENSE file which was distributed with this
- * source code.
+ * This interface doesn't provide any methods. It's sole purpose is to prevent
+ * write-only model objects to be shown and searched by the showAction() and
+ * showRelationshipAction().
  */
-
-use Neos\Flow\Annotations as Flow;
 
 interface ReadModelInterface extends GenericModelInterface
 {
