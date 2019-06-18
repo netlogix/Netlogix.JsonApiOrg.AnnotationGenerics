@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Resource;
 
 /*
@@ -10,6 +12,8 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Resource;
  */
 
 use Neos\Flow\Annotations as Flow;
+use Neos\Utility\Exception\InvalidTypeException;
+use Neos\Utility\Exception\PropertyNotAccessibleException;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Configuration\ConfigurationProvider;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\GenericModelInterface;
 use Netlogix\JsonApiOrg\Domain\Dto\AbstractResource;
@@ -31,7 +35,18 @@ class GenericModelResource extends AbstractResource
     protected $payload;
 
     /**
-     * Load attributes and relationships to be api exposed
+     * @param GenericModelInterface $payload
+     * @param ResourceInformationInterface $resourceInformation
+     */
+    public function __construct(
+        GenericModelInterface $payload,
+        ResourceInformationInterface $resourceInformation = null
+    ) {
+        parent::__construct($payload, $resourceInformation);
+    }
+
+    /**
+     * @throws InvalidTypeException
      */
     public function initializeObject()
     {
@@ -44,18 +59,9 @@ class GenericModelResource extends AbstractResource
     }
 
     /**
-     * @param GenericModelInterface $payload
-     * @param ResourceInformationInterface $resourceInformation
-     */
-    public function __construct(GenericModelInterface $payload, ResourceInformationInterface $resourceInformation = null)
-    {
-        parent::__construct($payload, $resourceInformation);
-    }
-
-    /**
      * @param string $propertyName
      * @return mixed
-     * @throws \Neos\Utility\Exception\PropertyNotAccessibleException
+     * @throws PropertyNotAccessibleException
      */
     public function getPayloadProperty($propertyName)
     {
@@ -67,10 +73,7 @@ class GenericModelResource extends AbstractResource
         }
     }
 
-    /**
-     * @return GenericModelInterface
-     */
-    public function getPayload()
+    public function getPayload(): GenericModelInterface
     {
         return parent::getPayload();
     }
@@ -81,9 +84,15 @@ class GenericModelResource extends AbstractResource
             return parent::getId();
         }
         $payload = $this->getPayload();
-        $result = join("|", array_map(function ($identityAttribute) use ($payload) {
-            return \Neos\Utility\ObjectAccess::getProperty($payload, $identityAttribute);
-        }, $this->identityAttributes));
+        $result = join(
+            "|",
+            array_map(
+                function ($identityAttribute) use ($payload) {
+                    return \Neos\Utility\ObjectAccess::getProperty($payload, $identityAttribute);
+                },
+                $this->identityAttributes
+            )
+        );
         return $result;
     }
 

@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model;
 
 /*
@@ -8,8 +10,6 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model;
  * information, please view the LICENSE file which was distributed with this
  * source code.
  */
-
-use Neos\Flow\Annotations as Flow;
 
 interface GenericModelInterface
 {

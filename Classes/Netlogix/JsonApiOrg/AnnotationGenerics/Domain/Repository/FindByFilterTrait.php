@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Repository;
 
 /*
@@ -11,10 +13,13 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Repository;
 
 use Doctrine\ORM\Mapping as ORM;
 use Neos\Flow\Annotations as Flow;
+use Neos\Flow\Persistence\Exception\InvalidQueryException;
 use Neos\Flow\Persistence\QueryInterface;
 use Neos\Flow\Persistence\QueryResultInterface;
 use Neos\Flow\Persistence\RepositoryInterface;
+use Neos\Flow\Property\Exception\InvalidTargetException;
 use Neos\Flow\Property\PropertyMappingConfiguration;
+use Neos\Utility\Exception\InvalidTypeException;
 use Neos\Utility\TypeHandling;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\Arguments\Page;
 
@@ -46,13 +51,16 @@ trait FindByFilterTrait
      * the corresponding value the required value.
      *
      * @param array $filter
-     * @param Page $page
+     * @param Page|null $page
      * @return QueryResultInterface
+     * @throws InvalidQueryException
+     * @throws InvalidTargetException
+     * @throws InvalidTypeException
      */
-    public function findByFilter(array $filter = [], Page $page = null)
+    public function findByFilter(array $filter = [], Page $page = null): QueryResultInterface
     {
-        /** @var QueryInterface $query */
         $query = $this->createQuery();
+        assert($query instanceof QueryInterface);
 
         $logicalAnd = [];
         $constraint = $query->getConstraint();
@@ -94,25 +102,33 @@ trait FindByFilterTrait
      * @param string $propertyPath
      * @param $value
      * @return object
+     * @throws InvalidQueryException
+     * @throws InvalidTargetException
+     * @throws InvalidTypeException
      */
-    protected function addPropertyFilterConstraint(QueryInterface $query, $propertyPath, $value)
+    protected function addPropertyFilterConstraint(QueryInterface $query, string $propertyPath, $value)
     {
         if ($propertyPath === '__identity') {
             $entityClassName = $this->getEntityClassName();
             if (property_exists($entityClassName, 'Persistence_Object_Identifier')) {
                 return $query->equals('Persistence_Object_Identifier', $value);
             } else {
-                foreach ($this->reflectionService->getPropertyNamesByAnnotation($entityClassName, ORM\Id::class) as $propertyName) {
+                $propertyNames = $this->reflectionService->getPropertyNamesByAnnotation($entityClassName,
+                    ORM\Id::class);
+                foreach ($propertyNames as $propertyName) {
                     return $query->equals($propertyName, $value);
                 }
             }
         }
 
         if (strpos($propertyPath, '.') === false) {
-            $type = TypeHandling::parseType($this->objectConverter->getTypeOfChildProperty(
-                $this->getEntityClassName(),
-                $propertyPath,
-                new PropertyMappingConfiguration()));
+            $type = TypeHandling::parseType(
+                $this->objectConverter->getTypeOfChildProperty(
+                    $this->getEntityClassName(),
+                    $propertyPath,
+                    new PropertyMappingConfiguration()
+                )
+            );
             switch ($type['type']) {
                 case 'boolean':
                     return $this->addFilterConstraintForBooleanProperty($query, $propertyPath, $value);
@@ -140,7 +156,7 @@ trait FindByFilterTrait
      * @param mixed $value
      * @return object
      */
-    protected function addFilterConstraintForBooleanProperty(QueryInterface $query, $propertyPath, $value)
+    protected function addFilterConstraintForBooleanProperty(QueryInterface $query, string $propertyPath, $value)
     {
         if ((string)$value === (string)(int)$value) {
             return $query->equals($propertyPath, (bool)$value);
@@ -161,10 +177,11 @@ trait FindByFilterTrait
      *
      * @param QueryInterface $query
      * @param string $propertyPath
-     * @param array <string> $value
+     * @param $value
      * @return object
+     * @throws InvalidQueryException
      */
-    protected function addFilterConstraintForNumericProperty(QueryInterface $query, $propertyPath, $value)
+    protected function addFilterConstraintForNumericProperty(QueryInterface $query, string $propertyPath, $value)
     {
         $constraints = [];
         $values = (array)$value;
@@ -216,10 +233,11 @@ trait FindByFilterTrait
      *
      * @param QueryInterface $query
      * @param string $propertyPath
-     * @param array <string> $value
+     * @param $value
      * @return object
+     * @throws InvalidQueryException
      */
-    protected function addFilterConstraintForDateTimeProperty(QueryInterface $query, $propertyPath, $value)
+    protected function addFilterConstraintForDateTimeProperty(QueryInterface $query, string $propertyPath, $value)
     {
         $constraints = [];
         $values = (array)$value;
@@ -267,7 +285,7 @@ trait FindByFilterTrait
      * @param string $type
      * @return object
      */
-    protected function addFilterConstraintForUnrecognizedProperty(QueryInterface $query, $propertyPath, $value, $type)
+    protected function addFilterConstraintForUnrecognizedProperty(QueryInterface $query, string $propertyPath, $value, $type)
     {
         return $query->equals($propertyPath, $value);
     }
@@ -275,10 +293,11 @@ trait FindByFilterTrait
     /**
      * @param QueryInterface $query
      * @param string $propertyPath
-     * @param string $value
+     * @param $value
      * @return object
+     * @throws InvalidQueryException
      */
-    protected function addLikeFilterConstraintForProperty(QueryInterface $query, $propertyPath, $value)
+    protected function addLikeFilterConstraintForProperty(QueryInterface $query, string $propertyPath, $value)
     {
         $searchValue = trim($value, '*');
         $constraints = [
