@@ -136,8 +136,8 @@ class ConfigurationProvider
             $propertyName = lcfirst(ltrim($methodName, 'getisha'));
 
             $annotation = $reflection->getMethodAnnotation($type, $methodName, JsonApi\ExposeProperty::class);
-            assert($annotation instanceof JsonApi\ExposeProperty);
             if ($annotation !== null) {
+                assert($annotation instanceof JsonApi\ExposeProperty);
                 $targetType = $reflection->getMethodTagsValues($type, $methodName)['return'][0];
                 $settings = $this->applyAnnotationBasedConfigurationForProperty(
                     $propertyName,
@@ -148,8 +148,8 @@ class ConfigurationProvider
             }
 
             $annotation = $reflection->getMethodAnnotation($type, $methodName, JsonApi\Identity::class);
-            assert($annotation instanceof JsonApi\Identity);
             if ($annotation !== null) {
+                assert($annotation instanceof JsonApi\Identity);
                 $settings['identityAttributes'][$propertyName] = $propertyName;
             }
         }
