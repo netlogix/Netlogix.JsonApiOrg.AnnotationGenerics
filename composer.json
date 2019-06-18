@@ -11,13 +11,8 @@
         "netlogix/jsonapiorg": "*"
     },
     "autoload": {
-        "psr-0": {
-            "Netlogix\\JsonApiOrg\\AnnotationGenerics": "Classes"
-        }
-    },
-    "autoload-dev": {
-        "psr-0": {
-            "Netlogix\\JsonApiOrg\\AnnotationGenerics\\Tests": "Tests"
+        "psr-4": {
+            "Netlogix\\JsonApiOrg\\AnnotationGenerics\\": "Classes"
         }
     },
     "replace": {
