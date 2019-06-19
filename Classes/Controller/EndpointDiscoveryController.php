@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 namespace Netlogix\JsonApiOrg\AnnotationGenerics\Controller;
 
 /*
@@ -9,15 +11,18 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Controller;
  * source code.
  */
 
+use Neos\Cache\Exception;
 use Neos\Cache\Frontend\VariableFrontend;
 use Neos\Flow\Annotations as Flow;
 use Neos\Flow\Mvc\Controller\ActionController;
 use Neos\Flow\Mvc\Exception\NoMatchingRouteException;
+use Neos\Flow\Mvc\Routing\Exception\MissingActionNameException;
 use Neos\Flow\ObjectManagement\ObjectManagerInterface;
 use Neos\Flow\Package\PackageManagerInterface;
 use Neos\Flow\Persistence\Exception\UnknownObjectException;
 use Neos\Flow\Property\Exception\FormatNotSupportedException;
 use Neos\Flow\Reflection\ReflectionService;
+use Neos\Utility\Exception\InvalidTypeException;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Annotations as JsonApi;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Configuration\ConfigurationProvider;
 use Netlogix\JsonApiOrg\Resource\Information\ResourceMapper;
@@ -36,18 +41,18 @@ class EndpointDiscoveryController extends ActionController
     /**
      * @var array
      */
-    protected $supportedMediaTypes = array(
+    protected $supportedMediaTypes = [
         'application/vnd.api+json',
         'application/json',
         'text/html'
-    );
+    ];
 
     /**
      * @var array
      */
-    protected $viewFormatToObjectNameMap = array(
+    protected $viewFormatToObjectNameMap = [
         'json' => JsonView::class
-    );
+    ];
 
     /**
      * @var array
@@ -102,9 +107,11 @@ class EndpointDiscoveryController extends ActionController
 
     /**
      * @param string $packageKey
-     * @return string
+     * @throws Exception
+     * @throws InvalidTypeException
+     * @throws MissingActionNameException
      */
-    public function indexAction($packageKey = null)
+    public function indexAction(string $packageKey = '')
     {
         $cacheIdentifier = md5($packageKey);
         if ($this->resultsCache->has($cacheIdentifier)) {
@@ -134,8 +141,10 @@ class EndpointDiscoveryController extends ActionController
 
     /**
      * @return array
+     * @throws InvalidTypeException
+     * @throws MissingActionNameException
      */
-    protected function getResultJson()
+    protected function getResultJson(): array
     {
         $result = $this->resultTemplate;
         $packageKeys = $this->packageKeysTemplate;
@@ -189,19 +198,21 @@ class EndpointDiscoveryController extends ActionController
     }
 
     /**
-     * @param $className
-     * @return mixed
+     * @param string $className
+     * @return object
      */
-    protected function getDummyObject($className)
+    protected function getDummyObject(string $className)
     {
         return unserialize('O:' . strlen($className) . ':"' . $className . '":0:{};');
     }
 
     /**
-     * @param mixed $resource
+     * @param $resource
      * @return string
+     * @throws InvalidTypeException
+     * @throws MissingActionNameException
      */
-    protected function buildUriForDummyResource($resource)
+    protected function buildUriForDummyResource($resource): string
     {
         $settings = $this->configurationProvider->getSettingsForType($resource);
 

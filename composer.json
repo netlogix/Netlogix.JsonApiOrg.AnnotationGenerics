@@ -1,20 +1,18 @@
 {
     "name": "netlogix/jsonapiorg-annotationgenerics",
     "type": "neos-package",
+    "description": "Map neos/flow objects to jsonapi.org input and output structures, purly by adding class and property annotations.",
     "homepage": "http://websolutions.netlogix.de/",
     "license": ["MIT"],
     "require": {
+        "php": "^7.0",
+        "ext-json": "*",
         "neos/flow": "*",
         "netlogix/jsonapiorg": "*"
     },
     "autoload": {
-        "psr-0": {
-            "Netlogix\\JsonApiOrg\\AnnotationGenerics": "Classes"
-        }
-    },
-    "autoload-dev": {
-        "psr-0": {
-            "Netlogix\\JsonApiOrg\\AnnotationGenerics\\Tests": "Tests"
+        "psr-4": {
+            "Netlogix\\JsonApiOrg\\AnnotationGenerics\\": "Classes"
         }
     },
     "replace": {
