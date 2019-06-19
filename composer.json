@@ -8,7 +8,8 @@
         "php": "^7.0",
         "ext-json": "*",
         "neos/flow": "*",
-        "netlogix/jsonapiorg": "*"
+        "doctrine/collections": "^1.4",
+        "netlogix/jsonapiorg": "^4.1"
     },
     "autoload": {
         "psr-4": {

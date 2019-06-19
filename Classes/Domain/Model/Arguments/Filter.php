@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Repository;
+namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\Arguments;
 
 /*
  * This file is part of the Netlogix.JsonApiOrg.AnnotationGenerics package.
@@ -11,11 +11,11 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Repository;
  * source code.
  */
 
-use Neos\Flow\Persistence\Repository;
+use Doctrine\Common\Collections\Criteria;
 
-abstract class GenericModelRepository extends Repository implements GenericModelRepositoryInterface
+interface Filter
 {
-    use FindByFilterTrait;
+    public function canFilter(string $objectClassName): bool;
 
-    use SelectableRepository;
+    public function getCriteria(): Criteria;
 }

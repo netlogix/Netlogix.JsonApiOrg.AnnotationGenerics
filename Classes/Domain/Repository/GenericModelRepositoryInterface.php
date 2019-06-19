@@ -11,6 +11,7 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Repository;
  * source code.
  */
 
+use Doctrine\Common\Collections\Selectable;
 use Neos\Flow\Persistence\QueryResultInterface;
 use Neos\Flow\Persistence\RepositoryInterface;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\Arguments\Page;
@@ -18,12 +19,7 @@ use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\Arguments\Page;
 interface GenericModelRepositoryInterface extends RepositoryInterface
 {
     /**
-     * Takes several key/value pairs where every key targets a property path and
-     * the corresponding value the required value.
-     *
-     * @param array $filter
-     * @param Page $page
-     * @return QueryResultInterface
+     * @return Selectable
      */
-    public function findByFilter(array $filter = [], Page $page = null);
+    public function getSelectable(): Selectable;
 }
