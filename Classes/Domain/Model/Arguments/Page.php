@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\Arguments;
 
 /*
@@ -30,7 +32,7 @@ class Page
      * @param int $number
      * @param int $size
      */
-    public function __construct($number = null, $size = null)
+    public function __construct(int $number = null, int $size = null)
     {
         if (!is_null($number) && $number >= 0) {
             $this->number = $number;
@@ -43,7 +45,7 @@ class Page
     /**
      * @return int
      */
-    public function getNumber()
+    public function getNumber(): int
     {
         return $this->number;
     }
@@ -51,7 +53,7 @@ class Page
     /**
      * @return int
      */
-    public function getSize()
+    public function getSize(): int
     {
         return $this->size;
     }
@@ -59,7 +61,7 @@ class Page
     /**
      * @return int
      */
-    public function getOffset()
+    public function getOffset(): int
     {
         return $this->getSize() * $this->getNumber();
     }
@@ -69,7 +71,7 @@ class Page
         $this->valid = false;
     }
 
-    public function isValid()
+    public function isValid(): bool
     {
         return $this->valid;
     }

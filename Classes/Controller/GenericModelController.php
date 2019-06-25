@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 namespace Netlogix\JsonApiOrg\AnnotationGenerics\Controller;
 
 /*
@@ -13,14 +15,23 @@ use Neos\Flow\Annotations as Flow;
 use Neos\Flow\Http\Uri;
 use Neos\Flow\Mvc\ActionRequest;
 use Neos\Flow\Mvc\Controller\Argument;
+use Neos\Flow\Mvc\Exception\InvalidArgumentNameException;
+use Neos\Flow\Mvc\Exception\InvalidArgumentTypeException;
+use Neos\Flow\Mvc\Exception\NoSuchArgumentException;
 use Neos\Flow\ObjectManagement\Exception\UnknownObjectException;
+use Neos\Flow\Persistence\QueryResultInterface;
+use Neos\Flow\Property\Exception\FormatNotSupportedException;
+use Neos\Flow\Property\PropertyMappingConfiguration;
+use Neos\Utility\Exception\PropertyNotAccessibleException;
 use Neos\Utility\ObjectAccess;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\Arguments\Page;
+use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\GenericModelInterface;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\ReadModelInterface;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\WriteModelInterface;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Repository\GenericModelRepositoryInterface;
 use Netlogix\JsonApiOrg\Controller\ApiController;
 use Netlogix\JsonApiOrg\Resource\Information\ExposableTypeMapInterface;
+use Netlogix\JsonApiOrg\Schema\ResourceInterface;
 use Netlogix\JsonApiOrg\Schema\TopLevel;
 
 /**
@@ -44,33 +55,25 @@ class GenericModelController extends ApiController
     }
 
     /**
-     * Allow creation of resources in createAction()
-     *
-     * @return void
-     */
-    protected function initializeListAction()
-    {
-        $propertyMappingConfiguration = $this->arguments['page']->getPropertyMappingConfiguration();
-        $propertyMappingConfiguration->allowAllProperties();
-    }
-
-    /**
      * @param array $filter
      * @param string $resourceType
-     * @param Page $page
-     * @return string|null
+     * @param Page|null $page
+     * @return false|string
+     * @throws FormatNotSupportedException
      */
-    public function listAction(array $filter = [], $resourceType = '', Page $page = null)
+    public function listAction(array $filter = [], string $resourceType = '', Page $page = null)
     {
         try {
             $repository = $this->getRepositoryForResourceType($resourceType);
         } catch (UnknownObjectException $e) {
             $this->response->setStatus(400);
             $this->response->setHeader('Content-Type', current($this->supportedMediaTypes));
-            $result = ['errors' => [
-                'code' => 400,
-                'title' => 'The resource type "' . strtolower($resourceType) . '" is not an aggregate root.',
-            ]];
+            $result = [
+                'errors' => [
+                    'code' => 400,
+                    'title' => 'The resource type "' . strtolower($resourceType) . '" is not an aggregate root.',
+                ]
+            ];
             return json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
         }
 
@@ -95,23 +98,14 @@ class GenericModelController extends ApiController
     /**
      * @param ReadModelInterface $resource
      * @param string $relationshipName
+     * @throws PropertyNotAccessibleException
      */
-    public function showRelationshipAction(ReadModelInterface $resource, $relationshipName)
+    public function showRelationshipAction(ReadModelInterface $resource, string $relationshipName)
     {
         $resourceResource = $this->findResourceResource($resource);
-        $relationship = \Neos\Utility\ObjectAccess::getProperty($resourceResource->getRelationships(), $relationshipName);
+        $relationship = \Neos\Utility\ObjectAccess::getProperty($resourceResource->getRelationships(),
+            $relationshipName);
         $this->view->assign('value', $relationship);
-    }
-
-    /**
-     * Allow creation of resources in createAction()
-     *
-     * @return void
-     */
-    protected function initializeShowRelatedAction()
-    {
-        $propertyMappingConfiguration = $this->arguments['page']->getPropertyMappingConfiguration();
-        $propertyMappingConfiguration->allowAllProperties();
     }
 
     /**
@@ -119,7 +113,7 @@ class GenericModelController extends ApiController
      * @param string $relationshipName
      * @param Page $page
      */
-    public function showRelatedAction(ReadModelInterface $resource, $relationshipName, Page $page = null)
+    public function showRelatedAction(ReadModelInterface $resource, string $relationshipName, Page $page = null)
     {
         $resourceResource = $this->findResourceResource($resource);
         $relationship = $resourceResource->getPayloadProperty($relationshipName);
@@ -134,38 +128,53 @@ class GenericModelController extends ApiController
     /**
      * @param WriteModelInterface $resource
      * @param string $resourceType
+     * @throws FormatNotSupportedException
+     * @throws UnknownObjectException
      */
-    public function createAction(WriteModelInterface $resource, $resourceType = '')
+    public function createAction(WriteModelInterface $resource, string $resourceType = '')
     {
         $this->getRepositoryForResourceType($resourceType)->add($resource);
         $topLevel = $this->relationshipIterator->createTopLevel($resource);
         $this->view->assign('value', $topLevel);
     }
 
+    protected function initializeListAction()
+    {
+        $propertyMappingConfiguration = $this->arguments['page']->getPropertyMappingConfiguration();
+        assert($propertyMappingConfiguration instanceof PropertyMappingConfiguration);
+        $propertyMappingConfiguration->allowAllProperties();
+    }
+
+    protected function initializeShowRelatedAction()
+    {
+        $propertyMappingConfiguration = $this->arguments['page']->getPropertyMappingConfiguration();
+        assert($propertyMappingConfiguration instanceof PropertyMappingConfiguration);
+        $propertyMappingConfiguration->allowAllProperties();
+    }
+
     /**
-     * Returns the model class name for the given type
-     *
-     * @param $resourceType
-     * @return string|null
+     * @param string $resourceType
+     * @return string
+     * @throws FormatNotSupportedException
      */
-    protected function getModelClassNameForResourceType($resourceType)
+    protected function getModelClassNameForResourceType(string $resourceType): string
     {
         return $this->exposableTypeMap->getClassName(strtolower($resourceType));
     }
 
     /**
-     * Creates the repository responsible for the given type
-     *
      * @param string $resourceType
      * @return GenericModelRepositoryInterface
+     * @throws FormatNotSupportedException
      * @throws UnknownObjectException
      */
-    protected function getRepositoryForResourceType($resourceType)
+    protected function getRepositoryForResourceType(string $resourceType): GenericModelRepositoryInterface
     {
         $class = $this->getModelClassNameForResourceType($resourceType);
         $parentClasses = array_merge([$class], class_parents($class));
         foreach ($parentClasses as $modelCandidate) {
-            $repositoryCandidate = str_replace('\\Domain\\Model\\', '\\Domain\\Repository\\', $modelCandidate) . 'Repository';
+            $repositoryCandidate = str_replace('\\Domain\\Model\\', '\\Domain\\Repository\\',
+                    $modelCandidate) . 'Repository';
             if (class_exists($repositoryCandidate)) {
                 return $this->objectManager->get($repositoryCandidate);
             }
@@ -174,7 +183,11 @@ class GenericModelController extends ApiController
     }
 
     /**
-     * @inheritdoc
+     * @throws FormatNotSupportedException
+     * @throws InvalidArgumentNameException
+     * @throws InvalidArgumentTypeException
+     * @throws NoSuchArgumentException
+     * @throws PropertyNotAccessibleException
      */
     protected function initializeActionMethodArguments()
     {
@@ -184,6 +197,12 @@ class GenericModelController extends ApiController
 
     /**
      * Overrules the controller argument dataType
+     *
+     * @throws FormatNotSupportedException
+     * @throws InvalidArgumentNameException
+     * @throws InvalidArgumentTypeException
+     * @throws NoSuchArgumentException
+     * @throws PropertyNotAccessibleException
      */
     protected function determineResourceArgumentType()
     {
@@ -202,7 +221,8 @@ class GenericModelController extends ApiController
 
         $argumentTemplate = $this->arguments->getArgument('resource');
         /** @var Argument $newArgument */
-        $newArgument = $this->objectManager->get(get_class($argumentTemplate), $argumentTemplate->getName(), $this->getModelClassNameForResourceType($typeValue));
+        $newArgument = $this->objectManager->get(get_class($argumentTemplate), $argumentTemplate->getName(),
+            $this->getModelClassNameForResourceType($typeValue));
         foreach (ObjectAccess::getSettablePropertyNames($newArgument) as $propertyName) {
             $propertyValue = ObjectAccess::getProperty($argumentTemplate, $propertyName);
             if ($propertyValue !== ObjectAccess::getProperty($newArgument, $propertyName)) {
@@ -212,11 +232,7 @@ class GenericModelController extends ApiController
         $this->arguments['resource'] = $newArgument;
     }
 
-    /**
-     * @param $resource
-     * @return \Netlogix\JsonApiOrg\Schema\ResourceInterface
-     */
-    protected function findResourceResource($resource)
+    protected function findResourceResource(GenericModelInterface $resource): ResourceInterface
     {
         $resourceInformation = $this->resourceMapper->findResourceInformation($resource);
         return $resourceInformation->getResource($resource);
@@ -228,7 +244,7 @@ class GenericModelController extends ApiController
             return $objects;
         }
 
-        if (is_object($objects) && $objects instanceof \Neos\Flow\Persistence\QueryResultInterface) {
+        if (is_object($objects) && $objects instanceof QueryResultInterface) {
             $query = clone $objects->getQuery();
             $query->setLimit($page->getSize());
 
@@ -251,7 +267,7 @@ class GenericModelController extends ApiController
         }
     }
 
-    protected function applyPaginationMetaToTopLevel(TopLevel $topLevel, Page $page = null, $result, $limitedResult)
+    protected function applyPaginationMetaToTopLevel(TopLevel $topLevel, Page $page = null, $result = [], $limitedResult = [])
     {
         if (!is_object($page) || !$page->isValid()) {
             return $topLevel;

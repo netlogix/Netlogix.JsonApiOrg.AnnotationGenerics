@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Repository;
 
 /*
@@ -9,7 +11,6 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Repository;
  * source code.
  */
 
-use Neos\Flow\Annotations as Flow;
 use Neos\Flow\Persistence\Repository;
 
 abstract class GenericModelRepository extends Repository implements GenericModelRepositoryInterface

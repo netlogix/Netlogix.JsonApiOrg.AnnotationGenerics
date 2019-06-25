@@ -1,5 +1,7 @@
 <?php
-namespace Netlogix\JsonApiOrg\AnnotationGenerics\Annotations;
+declare(strict_types=1);
+
+namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model;
 
 /*
  * This file is part of the Netlogix.JsonApiOrg.AnnotationGenerics package.
@@ -9,13 +11,7 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Annotations;
  * source code.
  */
 
-/**
- * A model class which should be available as api resource needs this
- * annotation.
- *
- * @Annotation
- * @Target({"METHOD", "PROPERTY"})
- */
-final class Identity
+interface GenericModelInterface
 {
+
 }
