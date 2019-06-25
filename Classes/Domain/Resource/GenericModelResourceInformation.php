@@ -34,7 +34,7 @@ use Netlogix\JsonApiOrg\Schema\Relationships;
  */
 class GenericModelResourceInformation extends ResourceInformation implements ResourceInformationInterface, LinksAwareResourceInformationInterface, MetaAwareResourceInformationInterface
 {
-    const DOMAIN_MODEL_PATTERN = '%(?<vendor>[^\\\\]+)\\\\(?<package>.*)\\\\(?<subPackage>[^\\\\]+)\\\\Domain\\\\(Model|Command)\\\\(?<resourceType>.+)$%i';
+    const DOMAIN_MODEL_PATTERN = '%(?<vendor>[^\\\\]+)\\\\(?<package>.*)(\\\\(?<subPackage>[^\\\\]+))?\\\\Domain\\\\(Model|Command)\\\\(?<resourceType>.+)$%i';
 
     /**
      * @var int
@@ -91,7 +91,7 @@ class GenericModelResourceInformation extends ResourceInformation implements Res
                 $matches) && class_exists($controllerClassName) && is_subclass_of($controllerClassName,
                 GenericModelController::class)) {
             $result['subPackage'] = [];
-            foreach (explode('\\', $matches['subPackage']) as $subPackage) {
+            foreach (explode('\\', $matches['subPackage'] ?: $matches['package']) as $subPackage) {
                 $result['subPackage'][] = lcfirst($subPackage);
             }
             $result['subPackage'] = join('.', $result['subPackage']);

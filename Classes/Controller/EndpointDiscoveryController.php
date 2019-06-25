@@ -184,9 +184,12 @@ class EndpointDiscoveryController extends ActionController
         $result['links'] = array_merge($result['links'], $this->additionalLinks);
 
         foreach ($packageKeys as $packageKey) {
-            $result['meta']['api-version'][$packageKey] = $this->packageManager->getPackage($packageKey)->getInstalledVersion();
-            if ($result['meta']['api-version'][$packageKey] === null) {
-                $result['meta']['api-version'][$packageKey] = 'local';
+            try {
+                $result['meta']['api-version'][$packageKey] = $this->packageManager->getPackage($packageKey)->getInstalledVersion();
+                if ($result['meta']['api-version'][$packageKey] === null) {
+                    $result['meta']['api-version'][$packageKey] = 'local';
+                }
+            } catch (\Exception $e) {
             }
         }
 
