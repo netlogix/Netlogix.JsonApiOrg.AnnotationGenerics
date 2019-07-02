@@ -88,10 +88,14 @@ class GenericModelController extends ApiController
         if ($filter) {
             $result = $result->matching($filter->getCriteria());
         }
-
         assert($result instanceof ExtraLazyPersistentCollection);
 
-        $limitedResult = $this->applyPaginationToCollection($result, $page);
+        if ($page) {
+            $limitedResult = $result->matching($page->getCriteria());
+        } else {
+            $limitedResult = $result;
+        }
+        assert($limitedResult instanceof ExtraLazyPersistentCollection);
 
         $topLevel = $this->relationshipIterator->createTopLevel($limitedResult);
         $topLevel = $this->applyPaginationMetaToTopLevel($topLevel, $page, $result, $limitedResult);
@@ -135,10 +139,18 @@ class GenericModelController extends ApiController
     ) {
         $resourceResource = $this->findResourceResource($resource);
         $relationship = $resourceResource->getPayloadProperty($relationshipName);
+
         if ($filter && $relationship instanceof Selectable) {
             $relationship = $relationship->matching($filter->getCriteria());
         }
-        $limitedRelationship = $this->applyPaginationToCollection($relationship, $page);
+        assert($relationship instanceof ExtraLazyPersistentCollection);
+
+        if ($page) {
+            $limitedRelationship = $relationship->matching($page->getCriteria());
+        } else {
+            $limitedRelationship = $relationship;
+        }
+        assert($limitedRelationship instanceof ExtraLazyPersistentCollection);
 
         $topLevel = $this->relationshipIterator->createTopLevel($limitedRelationship);
         $topLevel = $this->applyPaginationMetaToTopLevel($topLevel, $page, $relationship, $limitedRelationship);
@@ -332,35 +344,6 @@ class GenericModelController extends ApiController
     {
         $resourceInformation = $this->resourceMapper->findResourceInformation($resource);
         return $resourceInformation->getResource($resource);
-    }
-
-    protected function applyPaginationToCollection($objects, RequestArgument\Page $page = null)
-    {
-        if (!is_object($page)) {
-            return $objects;
-        }
-
-        if (is_object($objects) && $objects instanceof QueryResultInterface) {
-            $query = clone $objects->getQuery();
-            $query->setLimit($page->getSize());
-
-            if ($page->getOffset()) {
-                $query->setOffset($page->getOffset());
-            }
-            return $query->execute();
-        }
-        if (is_object($objects) && $objects instanceof \ArrayObject) {
-            $objects = $objects->getArrayCopy();
-        } elseif (is_object($objects) && is_callable([$objects, 'toArray'])) {
-            $objects = $objects->toArray();
-        }
-
-        if (is_array($objects)) {
-            return array_slice((array)$objects, $page->getNumber(), $page->getSize());
-        } else {
-            $page->markAsInvalid();
-            return $objects;
-        }
     }
 
     protected function applyPaginationMetaToTopLevel(

@@ -11,6 +11,9 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\Arguments;
  * source code.
  */
 
+use Doctrine\Common\Collections\Criteria;
+use Neos\Flow\Persistence\QueryResultInterface;
+
 class Page
 {
     /**
@@ -74,5 +77,13 @@ class Page
     public function isValid(): bool
     {
         return $this->valid;
+    }
+
+    public function getCriteria(): Criteria
+    {
+        $result = Criteria::create();
+        $result->setMaxResults($this->getSize());
+        $result->setFirstResult($this->getOffset());
+        return $result;
     }
 }
