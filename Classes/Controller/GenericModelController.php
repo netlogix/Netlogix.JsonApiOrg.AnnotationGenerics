@@ -11,6 +11,8 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Controller;
  * source code.
  */
 
+use Athleta\WebApi\Vereinsverwaltung\Domain\Model\Mitglied;
+use Doctrine\Common\Collections\Selectable;
 use Neos\Flow\Annotations as Flow;
 use Neos\Flow\Http\Uri;
 use Neos\Flow\Mvc\ActionRequest;
@@ -24,7 +26,9 @@ use Neos\Flow\Property\Exception\FormatNotSupportedException;
 use Neos\Flow\Property\PropertyMappingConfiguration;
 use Neos\Utility\Exception\PropertyNotAccessibleException;
 use Neos\Utility\ObjectAccess;
-use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\Arguments\Page;
+use Neos\Utility\TypeHandling;
+use Netlogix\JsonApiOrg\AnnotationGenerics\Doctrine\ExtraLazyPersistentCollection;
+use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\Arguments as RequestArgument;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\GenericModelInterface;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\ReadModelInterface;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\WriteModelInterface;
@@ -55,14 +59,17 @@ class GenericModelController extends ApiController
     }
 
     /**
-     * @param array $filter
      * @param string $resourceType
-     * @param Page|null $page
-     * @return false|string
+     * @param RequestArgument\Filter $filter
+     * @param RequestArgument\Page $page
+     * @return false|string|null
      * @throws FormatNotSupportedException
      */
-    public function listAction(array $filter = [], string $resourceType = '', Page $page = null)
-    {
+    public function listAction(
+        string $resourceType,
+        RequestArgument\Filter $filter = null,
+        RequestArgument\Page $page = null
+    ) {
         try {
             $repository = $this->getRepositoryForResourceType($resourceType);
         } catch (UnknownObjectException $e) {
@@ -77,8 +84,18 @@ class GenericModelController extends ApiController
             return json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
         }
 
-        $result = $repository->findByFilter($filter);
-        $limitedResult = $this->applyPaginationToCollection($result, $page);
+        $result = $repository->getSelectable();
+        if ($filter) {
+            $result = $result->matching($filter->getCriteria());
+        }
+        assert($result instanceof ExtraLazyPersistentCollection);
+
+        if ($page) {
+            $limitedResult = $result->matching($page->getCriteria());
+        } else {
+            $limitedResult = $result;
+        }
+        assert($limitedResult instanceof ExtraLazyPersistentCollection);
 
         $topLevel = $this->relationshipIterator->createTopLevel($limitedResult);
         $topLevel = $this->applyPaginationMetaToTopLevel($topLevel, $page, $result, $limitedResult);
@@ -103,7 +120,7 @@ class GenericModelController extends ApiController
     public function showRelationshipAction(ReadModelInterface $resource, string $relationshipName)
     {
         $resourceResource = $this->findResourceResource($resource);
-        $relationship = \Neos\Utility\ObjectAccess::getProperty($resourceResource->getRelationships(),
+        $relationship = ObjectAccess::getProperty($resourceResource->getRelationships(),
             $relationshipName);
         $this->view->assign('value', $relationship);
     }
@@ -111,13 +128,29 @@ class GenericModelController extends ApiController
     /**
      * @param ReadModelInterface $resource
      * @param string $relationshipName
-     * @param Page $page
+     * @param RequestArgument\Filter $filter
+     * @param RequestArgument\Page $page
      */
-    public function showRelatedAction(ReadModelInterface $resource, string $relationshipName, Page $page = null)
-    {
+    public function showRelatedAction(
+        ReadModelInterface $resource,
+        string $relationshipName,
+        RequestArgument\Filter $filter = null,
+        RequestArgument\Page $page = null
+    ) {
         $resourceResource = $this->findResourceResource($resource);
         $relationship = $resourceResource->getPayloadProperty($relationshipName);
-        $limitedRelationship = $this->applyPaginationToCollection($relationship, $page);
+
+        if ($filter && $relationship instanceof Selectable) {
+            $relationship = $relationship->matching($filter->getCriteria());
+        }
+        assert($relationship instanceof ExtraLazyPersistentCollection);
+
+        if ($page) {
+            $limitedRelationship = $relationship->matching($page->getCriteria());
+        } else {
+            $limitedRelationship = $relationship;
+        }
+        assert($limitedRelationship instanceof ExtraLazyPersistentCollection);
 
         $topLevel = $this->relationshipIterator->createTopLevel($limitedRelationship);
         $topLevel = $this->applyPaginationMetaToTopLevel($topLevel, $page, $relationship, $limitedRelationship);
@@ -140,14 +173,19 @@ class GenericModelController extends ApiController
 
     protected function initializeListAction()
     {
-        $propertyMappingConfiguration = $this->arguments['page']->getPropertyMappingConfiguration();
-        assert($propertyMappingConfiguration instanceof PropertyMappingConfiguration);
-        $propertyMappingConfiguration->allowAllProperties();
+        $this->allowAllPropertiesForArguments('page');
+        $this->allowAllPropertiesForArguments('filter');
     }
 
     protected function initializeShowRelatedAction()
     {
-        $propertyMappingConfiguration = $this->arguments['page']->getPropertyMappingConfiguration();
+        $this->allowAllPropertiesForArguments('page');
+        $this->allowAllPropertiesForArguments('filter');
+    }
+
+    protected function allowAllPropertiesForArguments(string $argumentName)
+    {
+        $propertyMappingConfiguration = $this->arguments[$argumentName]->getPropertyMappingConfiguration();
         assert($propertyMappingConfiguration instanceof PropertyMappingConfiguration);
         $propertyMappingConfiguration->allowAllProperties();
     }
@@ -160,6 +198,26 @@ class GenericModelController extends ApiController
     protected function getModelClassNameForResourceType(string $resourceType): string
     {
         return $this->exposableTypeMap->getClassName(strtolower($resourceType));
+    }
+
+    /**
+     * @param string $resourceType
+     * @param string $propertyName
+     * @return string
+     */
+    protected function getModelClassNameForResourceTypeProperty(string $resourceType, string $propertyName): string
+    {
+        try {
+            $type = TypeHandling::parseType(
+                (string)$this->exposableTypeMap->getClassNameForProperty(
+                    strtolower($resourceType),
+                    strtolower($propertyName)
+                )
+            );
+            return $type['elementType'] ?: $type['type'];
+        } catch (\Exception $e) {
+            return '';
+        }
     }
 
     /**
@@ -192,7 +250,7 @@ class GenericModelController extends ApiController
     protected function initializeActionMethodArguments()
     {
         parent::initializeActionMethodArguments();
-        $this->determineResourceArgumentType();
+        $this->remapActionArguments();
     }
 
     /**
@@ -204,7 +262,7 @@ class GenericModelController extends ApiController
      * @throws NoSuchArgumentException
      * @throws PropertyNotAccessibleException
      */
-    protected function determineResourceArgumentType()
+    protected function remapActionArguments()
     {
         if (!$this->request->hasArgument('subPackage')) {
             return;
@@ -215,21 +273,71 @@ class GenericModelController extends ApiController
         $typeValue = ucfirst($this->request->getArgument('subPackage')) . '/' . ucfirst($this->request->getArgument('resourceType'));
         $this->request->setArgument('resourceType', $typeValue);
 
+        $modelClassName = $this->getModelClassNameForResourceType($typeValue);
+
+        $relationshipClassName = $this->arguments->hasArgument('relationshipName')
+            ? $this->getModelClassNameForResourceTypeProperty(
+                $typeValue,
+                $this->request->getArgument('relationshipName')
+            )
+            : null;
+
+        $this->remapResourceActionArgument($modelClassName);
+        $this->remapFilterActionArgument($relationshipClassName ?: $modelClassName);
+    }
+
+    /**
+     * @param string $modelClassName
+     * @throws NoSuchArgumentException
+     * @throws PropertyNotAccessibleException
+     */
+    protected function remapResourceActionArgument(string $modelClassName)
+    {
         if (!$this->arguments->hasArgument('resource')) {
             return;
         }
 
         $argumentTemplate = $this->arguments->getArgument('resource');
-        /** @var Argument $newArgument */
-        $newArgument = $this->objectManager->get(get_class($argumentTemplate), $argumentTemplate->getName(),
-            $this->getModelClassNameForResourceType($typeValue));
+        $newArgument = $this->objectManager->get(
+            get_class($argumentTemplate),
+            $argumentTemplate->getName(),
+            $modelClassName
+        );
+
+        $this->arguments['resource'] = $newArgument;
+        $this->arguments['filter'] = $this->cloneActionArgument($argumentTemplate, $newArgument);
+    }
+
+    protected function remapFilterActionArgument(string $modelClassName)
+    {
+        if (!$this->arguments->hasArgument('filter')) {
+            return;
+        }
+
+        $filterClassName = str_replace('\\Model\\', '\\Repository\\Filter\\', $modelClassName) . 'Filter';
+
+        $argumentTemplate = $this->arguments->getArgument('filter');
+        $newArgument = $this->objectManager->get(
+            get_class($argumentTemplate),
+            $argumentTemplate->getName(),
+            $filterClassName
+        );
+
+        $this->arguments['filter'] = $this->cloneActionArgument(
+            $argumentTemplate,
+            $newArgument
+        );
+    }
+
+    protected function cloneActionArgument($argumentTemplate, Argument $newArgument)
+    {
         foreach (ObjectAccess::getSettablePropertyNames($newArgument) as $propertyName) {
             $propertyValue = ObjectAccess::getProperty($argumentTemplate, $propertyName);
             if ($propertyValue !== ObjectAccess::getProperty($newArgument, $propertyName)) {
                 ObjectAccess::setProperty($newArgument, $propertyName, $propertyValue);
             }
         }
-        $this->arguments['resource'] = $newArgument;
+        return $newArgument;
     }
 
     protected function findResourceResource(GenericModelInterface $resource): ResourceInterface
@@ -238,37 +346,12 @@ class GenericModelController extends ApiController
         return $resourceInformation->getResource($resource);
     }
 
-    protected function applyPaginationToCollection($objects, Page $page = null)
-    {
-        if (!is_object($page)) {
-            return $objects;
-        }
-
-        if (is_object($objects) && $objects instanceof QueryResultInterface) {
-            $query = clone $objects->getQuery();
-            $query->setLimit($page->getSize());
-
-            if ($page->getOffset()) {
-                $query->setOffset($page->getOffset());
-            }
-            return $query->execute();
-        }
-        if (is_object($objects) && $objects instanceof \ArrayObject) {
-            $objects = $objects->getArrayCopy();
-        } elseif (is_object($objects) && is_callable([$objects, 'toArray'])) {
-            $objects = $objects->toArray();
-        }
-
-        if (is_array($objects)) {
-            return array_slice((array)$objects, $page->getNumber(), $page->getSize());
-        } else {
-            $page->markAsInvalid();
-            return $objects;
-        }
-    }
-
-    protected function applyPaginationMetaToTopLevel(TopLevel $topLevel, Page $page = null, $result = [], $limitedResult = [])
-    {
+    protected function applyPaginationMetaToTopLevel(
+        TopLevel $topLevel,
+        RequestArgument\Page $page = null,
+        $result = [],
+        $limitedResult = []
+    ) {
         if (!is_object($page) || !$page->isValid()) {
             return $topLevel;
         }
