@@ -187,7 +187,13 @@ class GenericModelController extends ApiController
     {
         $propertyMappingConfiguration = $this->arguments[$argumentName]->getPropertyMappingConfiguration();
         assert($propertyMappingConfiguration instanceof PropertyMappingConfiguration);
-        $propertyMappingConfiguration->allowAllProperties();
+
+        $propertyMappingConfiguration
+            ->allowAllProperties();
+
+        $propertyMappingConfiguration
+            ->forProperty(PropertyMappingConfiguration::PROPERTY_PATH_PLACEHOLDER)
+            ->allowAllProperties();
     }
 
     /**
