@@ -20,7 +20,6 @@ use Neos\Flow\Mvc\Exception\InvalidArgumentNameException;
 use Neos\Flow\Mvc\Exception\InvalidArgumentTypeException;
 use Neos\Flow\Mvc\Exception\NoSuchArgumentException;
 use Neos\Flow\ObjectManagement\Exception\UnknownObjectException;
-use Neos\Flow\Persistence\QueryResultInterface;
 use Neos\Flow\Property\Exception\FormatNotSupportedException;
 use Neos\Flow\Property\PropertyMappingConfiguration;
 use Neos\Utility\Exception\PropertyNotAccessibleException;
@@ -304,72 +303,36 @@ class GenericModelController extends ApiController
             )
             : null;
 
-        $this->remapResourceActionArgument($modelClassName);
-        $this->remapSortingActionArgument($relationshipClassName ?: $modelClassName);
-        $this->remapFilterActionArgument($relationshipClassName ?: $modelClassName);
+        $this->remapActionArgument(
+            'resource',
+            $modelClassName
+        );
+
+        $this->remapActionArgument(
+            'sort',
+            str_replace('\\Model\\', '\\Repository\\Sorting\\', $relationshipClassName ?: $modelClassName) . 'Sorting'
+        );
+
+        $this->remapActionArgument(
+            'filter',
+            str_replace('\\Model\\', '\\Repository\\Filter\\', $relationshipClassName ?: $modelClassName) . 'Filter'
+        );
     }
 
-    /**
-     * @param string $modelClassName
-     * @throws NoSuchArgumentException
-     * @throws PropertyNotAccessibleException
-     */
-    protected function remapResourceActionArgument(string $modelClassName)
+    protected function remapActionArgument(string $argumentName, string $modelClassName)
     {
-        if (!$this->arguments->hasArgument('resource')) {
+        if (!$this->arguments->hasArgument($argumentName)) {
             return;
         }
 
-        $argumentTemplate = $this->arguments->getArgument('resource');
+        $argumentTemplate = $this->arguments->getArgument($argumentName);
         $newArgument = $this->objectManager->get(
             get_class($argumentTemplate),
             $argumentTemplate->getName(),
             $modelClassName
         );
 
-        $this->arguments['resource'] = $newArgument;
-    }
-
-    protected function remapSortingActionArgument(string $modelClassName)
-    {
-        if (!$this->arguments->hasArgument('sort')) {
-            return;
-        }
-
-        $filterClassName = str_replace('\\Model\\', '\\Repository\\Sorting\\', $modelClassName) . 'Sorting';
-
-        $argumentTemplate = $this->arguments->getArgument('sort');
-        $newArgument = $this->objectManager->get(
-            get_class($argumentTemplate),
-            $argumentTemplate->getName(),
-            $filterClassName
-        );
-
-        $this->arguments['sort'] = $this->cloneActionArgument(
-            $argumentTemplate,
-            $newArgument
-        );
-    }
-
-    protected function remapFilterActionArgument(string $modelClassName)
-    {
-        if (!$this->arguments->hasArgument('filter')) {
-            return;
-        }
-
-        $filterClassName = str_replace('\\Model\\', '\\Repository\\Filter\\', $modelClassName) . 'Filter';
-
-        $argumentTemplate = $this->arguments->getArgument('filter');
-        $newArgument = $this->objectManager->get(
-            get_class($argumentTemplate),
-            $argumentTemplate->getName(),
-            $filterClassName
-        );
-
-        $this->arguments['filter'] = $this->cloneActionArgument(
-            $argumentTemplate,
-            $newArgument
-        );
+        $this->arguments[$argumentName] = $newArgument;
     }
 
     protected function cloneActionArgument($argumentTemplate, Argument $newArgument)
