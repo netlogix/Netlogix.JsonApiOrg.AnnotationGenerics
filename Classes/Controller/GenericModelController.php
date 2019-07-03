@@ -11,7 +11,6 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Controller;
  * source code.
  */
 
-use Athleta\WebApi\Vereinsverwaltung\Domain\Model\Mitglied;
 use Doctrine\Common\Collections\Selectable;
 use Neos\Flow\Annotations as Flow;
 use Neos\Flow\Http\Uri;
@@ -60,6 +59,7 @@ class GenericModelController extends ApiController
 
     /**
      * @param string $resourceType
+     * @param RequestArgument\Sorting $sort
      * @param RequestArgument\Filter $filter
      * @param RequestArgument\Page $page
      * @return false|string|null
@@ -67,6 +67,7 @@ class GenericModelController extends ApiController
      */
     public function listAction(
         string $resourceType,
+        RequestArgument\Sorting $sort = null,
         RequestArgument\Filter $filter = null,
         RequestArgument\Page $page = null
     ) {
@@ -85,6 +86,12 @@ class GenericModelController extends ApiController
         }
 
         $result = $repository->getSelectable();
+
+        if ($sort) {
+            $result = $result->matching($sort->getCriteria());
+        }
+        assert($result instanceof ExtraLazyPersistentCollection);
+
         if ($filter) {
             $result = $result->matching($filter->getCriteria());
         }
@@ -128,17 +135,24 @@ class GenericModelController extends ApiController
     /**
      * @param ReadModelInterface $resource
      * @param string $relationshipName
+     * @param RequestArgument\Sorting $sort
      * @param RequestArgument\Filter $filter
      * @param RequestArgument\Page $page
      */
     public function showRelatedAction(
         ReadModelInterface $resource,
         string $relationshipName,
+        RequestArgument\Sorting $sort = null,
         RequestArgument\Filter $filter = null,
         RequestArgument\Page $page = null
     ) {
         $resourceResource = $this->findResourceResource($resource);
         $relationship = $resourceResource->getPayloadProperty($relationshipName);
+
+        if ($sort && $relationship instanceof Selectable) {
+            $relationship = $relationship->matching($sort->getCriteria());
+        }
+        assert($relationship instanceof ExtraLazyPersistentCollection);
 
         if ($filter && $relationship instanceof Selectable) {
             $relationship = $relationship->matching($filter->getCriteria());
@@ -173,14 +187,16 @@ class GenericModelController extends ApiController
 
     protected function initializeListAction()
     {
-        $this->allowAllPropertiesForArguments('page');
+        $this->allowAllPropertiesForArguments('sort');
         $this->allowAllPropertiesForArguments('filter');
+        $this->allowAllPropertiesForArguments('page');
     }
 
     protected function initializeShowRelatedAction()
     {
-        $this->allowAllPropertiesForArguments('page');
+        $this->allowAllPropertiesForArguments('sort');
         $this->allowAllPropertiesForArguments('filter');
+        $this->allowAllPropertiesForArguments('page');
     }
 
     protected function allowAllPropertiesForArguments(string $argumentName)
@@ -289,6 +305,7 @@ class GenericModelController extends ApiController
             : null;
 
         $this->remapResourceActionArgument($modelClassName);
+        $this->remapSortingActionArgument($relationshipClassName ?: $modelClassName);
         $this->remapFilterActionArgument($relationshipClassName ?: $modelClassName);
     }
 
@@ -311,7 +328,27 @@ class GenericModelController extends ApiController
         );
 
         $this->arguments['resource'] = $newArgument;
-        $this->arguments['filter'] = $this->cloneActionArgument($argumentTemplate, $newArgument);
+    }
+
+    protected function remapSortingActionArgument(string $modelClassName)
+    {
+        if (!$this->arguments->hasArgument('sort')) {
+            return;
+        }
+
+        $filterClassName = str_replace('\\Model\\', '\\Repository\\Sorting\\', $modelClassName) . 'Sorting';
+
+        $argumentTemplate = $this->arguments->getArgument('sort');
+        $newArgument = $this->objectManager->get(
+            get_class($argumentTemplate),
+            $argumentTemplate->getName(),
+            $filterClassName
+        );
+
+        $this->arguments['sort'] = $this->cloneActionArgument(
+            $argumentTemplate,
+            $newArgument
+        );
     }
 
     protected function remapFilterActionArgument(string $modelClassName)
