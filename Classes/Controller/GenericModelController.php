@@ -11,7 +11,6 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Controller;
  * source code.
  */
 
-use Athleta\WebApi\Vereinsverwaltung\Domain\Model\Mitglied;
 use Doctrine\Common\Collections\Selectable;
 use Neos\Flow\Annotations as Flow;
 use Neos\Flow\Http\Uri;
@@ -21,7 +20,6 @@ use Neos\Flow\Mvc\Exception\InvalidArgumentNameException;
 use Neos\Flow\Mvc\Exception\InvalidArgumentTypeException;
 use Neos\Flow\Mvc\Exception\NoSuchArgumentException;
 use Neos\Flow\ObjectManagement\Exception\UnknownObjectException;
-use Neos\Flow\Persistence\QueryResultInterface;
 use Neos\Flow\Property\Exception\FormatNotSupportedException;
 use Neos\Flow\Property\PropertyMappingConfiguration;
 use Neos\Utility\Exception\PropertyNotAccessibleException;
@@ -60,6 +58,7 @@ class GenericModelController extends ApiController
 
     /**
      * @param string $resourceType
+     * @param RequestArgument\Sorting $sort
      * @param RequestArgument\Filter $filter
      * @param RequestArgument\Page $page
      * @return false|string|null
@@ -67,6 +66,7 @@ class GenericModelController extends ApiController
      */
     public function listAction(
         string $resourceType,
+        RequestArgument\Sorting $sort = null,
         RequestArgument\Filter $filter = null,
         RequestArgument\Page $page = null
     ) {
@@ -85,6 +85,12 @@ class GenericModelController extends ApiController
         }
 
         $result = $repository->getSelectable();
+
+        if ($sort) {
+            $result = $result->matching($sort->getCriteria());
+        }
+        assert($result instanceof ExtraLazyPersistentCollection);
+
         if ($filter) {
             $result = $result->matching($filter->getCriteria());
         }
@@ -128,17 +134,24 @@ class GenericModelController extends ApiController
     /**
      * @param ReadModelInterface $resource
      * @param string $relationshipName
+     * @param RequestArgument\Sorting $sort
      * @param RequestArgument\Filter $filter
      * @param RequestArgument\Page $page
      */
     public function showRelatedAction(
         ReadModelInterface $resource,
         string $relationshipName,
+        RequestArgument\Sorting $sort = null,
         RequestArgument\Filter $filter = null,
         RequestArgument\Page $page = null
     ) {
         $resourceResource = $this->findResourceResource($resource);
         $relationship = $resourceResource->getPayloadProperty($relationshipName);
+
+        if ($sort && $relationship instanceof Selectable) {
+            $relationship = $relationship->matching($sort->getCriteria());
+        }
+        assert($relationship instanceof ExtraLazyPersistentCollection);
 
         if ($filter && $relationship instanceof Selectable) {
             $relationship = $relationship->matching($filter->getCriteria());
@@ -173,14 +186,16 @@ class GenericModelController extends ApiController
 
     protected function initializeListAction()
     {
-        $this->allowAllPropertiesForArguments('page');
+        $this->allowAllPropertiesForArguments('sort');
         $this->allowAllPropertiesForArguments('filter');
+        $this->allowAllPropertiesForArguments('page');
     }
 
     protected function initializeShowRelatedAction()
     {
-        $this->allowAllPropertiesForArguments('page');
+        $this->allowAllPropertiesForArguments('sort');
         $this->allowAllPropertiesForArguments('filter');
+        $this->allowAllPropertiesForArguments('page');
     }
 
     protected function allowAllPropertiesForArguments(string $argumentName)
@@ -288,51 +303,36 @@ class GenericModelController extends ApiController
             )
             : null;
 
-        $this->remapResourceActionArgument($modelClassName);
-        $this->remapFilterActionArgument($relationshipClassName ?: $modelClassName);
+        $this->remapActionArgument(
+            'resource',
+            $modelClassName
+        );
+
+        $this->remapActionArgument(
+            'sort',
+            str_replace('\\Model\\', '\\Repository\\Sorting\\', $relationshipClassName ?: $modelClassName) . 'Sorting'
+        );
+
+        $this->remapActionArgument(
+            'filter',
+            str_replace('\\Model\\', '\\Repository\\Filter\\', $relationshipClassName ?: $modelClassName) . 'Filter'
+        );
     }
 
-    /**
-     * @param string $modelClassName
-     * @throws NoSuchArgumentException
-     * @throws PropertyNotAccessibleException
-     */
-    protected function remapResourceActionArgument(string $modelClassName)
+    protected function remapActionArgument(string $argumentName, string $modelClassName)
     {
-        if (!$this->arguments->hasArgument('resource')) {
+        if (!$this->arguments->hasArgument($argumentName)) {
             return;
         }
 
-        $argumentTemplate = $this->arguments->getArgument('resource');
+        $argumentTemplate = $this->arguments->getArgument($argumentName);
         $newArgument = $this->objectManager->get(
             get_class($argumentTemplate),
             $argumentTemplate->getName(),
             $modelClassName
         );
 
-        $this->arguments['resource'] = $newArgument;
-        $this->arguments['filter'] = $this->cloneActionArgument($argumentTemplate, $newArgument);
-    }
-
-    protected function remapFilterActionArgument(string $modelClassName)
-    {
-        if (!$this->arguments->hasArgument('filter')) {
-            return;
-        }
-
-        $filterClassName = str_replace('\\Model\\', '\\Repository\\Filter\\', $modelClassName) . 'Filter';
-
-        $argumentTemplate = $this->arguments->getArgument('filter');
-        $newArgument = $this->objectManager->get(
-            get_class($argumentTemplate),
-            $argumentTemplate->getName(),
-            $filterClassName
-        );
-
-        $this->arguments['filter'] = $this->cloneActionArgument(
-            $argumentTemplate,
-            $newArgument
-        );
+        $this->arguments[$argumentName] = $newArgument;
     }
 
     protected function cloneActionArgument($argumentTemplate, Argument $newArgument)
