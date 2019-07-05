@@ -11,7 +11,6 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Controller;
  * source code.
  */
 
-use Doctrine\Common\Collections\Selectable;
 use Neos\Flow\Annotations as Flow;
 use Neos\Flow\Http\Helper\UriHelper;
 use Neos\Flow\Http\Uri;
@@ -86,26 +85,14 @@ class GenericModelController extends ApiController
         }
 
         $result = $repository->getSelectable();
-
-        if ($sort) {
-            $result = $result->matching($sort->getCriteria());
-        }
         assert($result instanceof ExtraLazyPersistentCollection);
 
-        if ($filter) {
-            $result = $result->matching($filter->getCriteria());
-        }
-        assert($result instanceof ExtraLazyPersistentCollection);
-
-        if ($page) {
-            $limitedResult = $result->matching($page->getCriteria());
-        } else {
-            $limitedResult = $result;
-        }
-        assert($limitedResult instanceof ExtraLazyPersistentCollection);
-
-        $topLevel = $this->relationshipIterator->createTopLevel($limitedResult);
-        $topLevel = $this->applyPaginationMetaToTopLevel($topLevel, count($result), count($limitedResult), $page);
+        $topLevel = $this->createTopLevelOfCollection(
+            $result,
+            $sort,
+            $filter,
+            $page
+        );
 
         $this->view->assign('value', $topLevel);
     }
@@ -115,6 +102,19 @@ class GenericModelController extends ApiController
      */
     public function showAction(ReadModelInterface $resource)
     {
+        $topLevel = $this->relationshipIterator->createTopLevel($resource);
+        $this->view->assign('value', $topLevel);
+    }
+
+    /**
+     * @param WriteModelInterface $resource
+     * @param string $resourceType
+     * @throws FormatNotSupportedException
+     * @throws UnknownObjectException
+     */
+    public function createAction(WriteModelInterface $resource, string $resourceType = '')
+    {
+        $this->getRepositoryForResourceType($resourceType)->add($resource);
         $topLevel = $this->relationshipIterator->createTopLevel($resource);
         $this->view->assign('value', $topLevel);
     }
@@ -149,40 +149,48 @@ class GenericModelController extends ApiController
         $resourceResource = $this->findResourceResource($resource);
         $relationship = $resourceResource->getPayloadProperty($relationshipName);
 
-        if ($sort && $relationship instanceof Selectable) {
-            $relationship = $relationship->matching($sort->getCriteria());
-        }
-        assert($relationship instanceof ExtraLazyPersistentCollection);
-
-        if ($filter && $relationship instanceof Selectable) {
-            $relationship = $relationship->matching($filter->getCriteria());
-        }
-        assert($relationship instanceof ExtraLazyPersistentCollection);
-
-        if ($page) {
-            $limitedRelationship = $relationship->matching($page->getCriteria());
+        if ($relationship instanceof ExtraLazyPersistentCollection) {
+            $topLevel = $this->createTopLevelOfCollection(
+                $relationship,
+                $sort,
+                $filter,
+                $page
+            );
         } else {
-            $limitedRelationship = $relationship;
+            $topLevel = $this->relationshipIterator->createTopLevel($relationship);
         }
-        assert($limitedRelationship instanceof ExtraLazyPersistentCollection);
-
-        $topLevel = $this->relationshipIterator->createTopLevel($limitedRelationship);
-        $topLevel = $this->applyPaginationMetaToTopLevel($topLevel, count($relationship), count($limitedRelationship), $page);
 
         $this->view->assign('value', $topLevel);
     }
 
-    /**
-     * @param WriteModelInterface $resource
-     * @param string $resourceType
-     * @throws FormatNotSupportedException
-     * @throws UnknownObjectException
-     */
-    public function createAction(WriteModelInterface $resource, string $resourceType = '')
-    {
-        $this->getRepositoryForResourceType($resourceType)->add($resource);
-        $topLevel = $this->relationshipIterator->createTopLevel($resource);
-        $this->view->assign('value', $topLevel);
+    protected function createTopLevelOfCollection(
+        ExtraLazyPersistentCollection $result,
+        RequestArgument\Sorting $sort = null,
+        RequestArgument\Filter $filter = null,
+        RequestArgument\Page $page = null
+    ) {
+
+        if ($sort) {
+            $result = $result->matching($sort->getCriteria());
+        }
+        assert($result instanceof ExtraLazyPersistentCollection);
+
+        if ($filter) {
+            $result = $result->matching($filter->getCriteria());
+        }
+        assert($result instanceof ExtraLazyPersistentCollection);
+
+        if ($page) {
+            $limitedResult = $result->matching($page->getCriteria());
+        } else {
+            $limitedResult = $result;
+        }
+        assert($limitedResult instanceof ExtraLazyPersistentCollection);
+
+        $topLevel = $this->relationshipIterator->createTopLevel($limitedResult);
+        $topLevel = $this->applyPaginationMetaToTopLevel($topLevel, count($result), count($limitedResult), $page);
+
+        return $topLevel;
     }
 
     protected function initializeListAction()
