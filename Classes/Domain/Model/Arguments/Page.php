@@ -12,7 +12,9 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\Arguments;
  */
 
 use Doctrine\Common\Collections\Criteria;
-use Neos\Flow\Persistence\QueryResultInterface;
+use Neos\Flow\Http\Helper\UriHelper;
+use Neos\Flow\Http\Uri;
+use Netlogix\JsonApiOrg\Schema\TopLevel;
 
 class Page
 {
@@ -85,5 +87,21 @@ class Page
         $result->setMaxResults($this->getSize());
         $result->setFirstResult($this->getOffset());
         return $result;
+    }
+
+    public function getMeta(int $fullCount, int $limitedCount)
+    {
+        if (!$this->isValid()) {
+            return [];
+        }
+
+        return [
+            'current' => $this->getNumber(),
+            'per-page' => $this->getSize(),
+            'from' => $this->getOffset(),
+            'to' => $this->getOffset() + $limitedCount - 1,
+            'last-page' => (int)ceil($fullCount / $this->getSize()) - 1
+
+        ];
     }
 }

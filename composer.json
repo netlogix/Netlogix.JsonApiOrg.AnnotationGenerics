@@ -9,7 +9,7 @@
         "ext-json": "*",
         "neos/flow": "*",
         "doctrine/collections": "^1.4",
-        "netlogix/jsonapiorg": "^4.1"
+        "netlogix/jsonapiorg": "^4.2"
     },
     "autoload": {
         "psr-4": {

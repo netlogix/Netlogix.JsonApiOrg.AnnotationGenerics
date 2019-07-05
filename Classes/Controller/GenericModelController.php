@@ -13,6 +13,7 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Controller;
 
 use Doctrine\Common\Collections\Selectable;
 use Neos\Flow\Annotations as Flow;
+use Neos\Flow\Http\Helper\UriHelper;
 use Neos\Flow\Http\Uri;
 use Neos\Flow\Mvc\ActionRequest;
 use Neos\Flow\Mvc\Controller\Argument;
@@ -104,7 +105,7 @@ class GenericModelController extends ApiController
         assert($limitedResult instanceof ExtraLazyPersistentCollection);
 
         $topLevel = $this->relationshipIterator->createTopLevel($limitedResult);
-        $topLevel = $this->applyPaginationMetaToTopLevel($topLevel, $page, $result, $limitedResult);
+        $topLevel = $this->applyPaginationMetaToTopLevel($topLevel, count($result), count($limitedResult), $page);
 
         $this->view->assign('value', $topLevel);
     }
@@ -166,7 +167,7 @@ class GenericModelController extends ApiController
         assert($limitedRelationship instanceof ExtraLazyPersistentCollection);
 
         $topLevel = $this->relationshipIterator->createTopLevel($limitedRelationship);
-        $topLevel = $this->applyPaginationMetaToTopLevel($topLevel, $page, $relationship, $limitedRelationship);
+        $topLevel = $this->applyPaginationMetaToTopLevel($topLevel, count($relationship), count($limitedRelationship), $page);
 
         $this->view->assign('value', $topLevel);
     }
@@ -350,73 +351,50 @@ class GenericModelController extends ApiController
     {
         $resourceInformation = $this->resourceMapper->findResourceInformation($resource);
         return $resourceInformation->getResource($resource);
+
     }
 
     protected function applyPaginationMetaToTopLevel(
         TopLevel $topLevel,
-        RequestArgument\Page $page = null,
-        $result = [],
-        $limitedResult = []
-    ) {
-        if (!is_object($page) || !$page->isValid()) {
-            return $topLevel;
-        }
+        int $resultCount,
+        int $limitedResultCount,
+        RequestArgument\Page $page = null
+    ): TopLevel {
 
-        $count = count($result);
-        $limitedCount = count($limitedResult);
-
-        if ($count === $limitedCount || !$limitedCount) {
-            return $topLevel;
-        }
-
-        $paginationMeta = [
-            'current' => $page->getNumber(),
-            'per-page' => $page->getSize(),
-            'from' => $page->getOffset(),
-            'to' => $page->getOffset() + $limitedCount - 1,
-            'total' => $count,
-            'last-page' => ceil($count / $page->getSize()) - 1
-
-        ];
-        $topLevel->getMeta()->offsetSet('page', $paginationMeta);
-
+        $meta = $topLevel->getMeta();
         $links = $topLevel->getLinks();
 
-        /** @var ActionRequest $request */
+        $meta['page.total'] = $resultCount;
+
+        if (!$page || !$page->isValid()) {
+            return $topLevel;
+        }
+
+        $pageMeta = $page->getMeta($resultCount, $limitedResultCount);
+        foreach ($pageMeta as $key => $value) {
+            $meta['page.' . $key] = $value;
+        }
+
         $request = $this->controllerContext->getRequest();
-        $uri = new Uri((string)$request->getHttpRequest()->getUri());
-        $arguments = $uri->getArguments();
+        assert($request instanceof ActionRequest);
 
-        $arguments['page'] = [
-            'size' => $page->getSize(),
-            'number' => $page->getNumber()
-        ];
-        $uri->setQuery(http_build_query($arguments));
-        $links['current'] = (string)$uri;
+        $baseUri = new Uri((string)$request->getHttpRequest()->getUri());
 
-        $arguments['page']['number'] = 0;
-        $uri->setQuery(http_build_query($arguments));
-        $links['first'] = (string)$uri;
+        $withPageNumber = function (int $pageNumber) use ($baseUri, $page) {
+            $arguments = UriHelper::parseQueryIntoArguments($baseUri);
+            $arguments['page'] = [
+                'size' => $page->getSize(),
+                'number' => $page->getNumber()
+            ];
+            $arguments['page']['number'] = $pageNumber;
+            return (string)UriHelper::uriWithArguments($baseUri, $arguments);
+        };
 
-        $arguments['page']['number'] = $paginationMeta['last-page'];
-        $uri->setQuery(http_build_query($arguments));
-        $links['last'] = (string)$uri;
-
-        if ($paginationMeta['current'] < $paginationMeta['last-page']) {
-            $arguments['page']['number'] = $page->getNumber() + 1;
-            $uri->setQuery(http_build_query($arguments));
-            $links['next'] = (string)$uri;
-        } else {
-            $links['next'] = null;
-        }
-
-        if ($paginationMeta['current'] > 0) {
-            $arguments['page']['number'] = $page->getNumber() - 1;
-            $uri->setQuery(http_build_query($arguments));
-            $links['prev'] = (string)$uri;
-        } else {
-            $links['prev'] = null;
-        }
+        $links['current'] = $withPageNumber($pageMeta['current']);
+        $links['first'] = $withPageNumber(0);
+        $links['last'] = $withPageNumber($pageMeta['last-page']);
+        $links['next'] = $pageMeta['current'] < $pageMeta['last-page'] ? $withPageNumber($pageMeta['current'] + 1) : null;
+        $links['prev'] = $pageMeta['current'] > 0 ? $withPageNumber($pageMeta['current'] - 1) : null;
 
         return $topLevel;
     }
