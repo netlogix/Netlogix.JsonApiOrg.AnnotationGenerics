@@ -12,9 +12,7 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\Arguments;
  */
 
 use Doctrine\Common\Collections\Criteria;
-use Neos\Flow\Http\Helper\UriHelper;
-use Neos\Flow\Http\Uri;
-use Netlogix\JsonApiOrg\Schema\TopLevel;
+use Neos\Utility\ObjectAccess;
 
 class Page
 {
@@ -34,16 +32,27 @@ class Page
     protected $valid = true;
 
     /**
+     * @var Cursor
+     */
+    protected $cursor;
+
+    /**
      * @param int $number
      * @param int $size
+     * @param Cursor $cursor
      */
-    public function __construct(int $number = null, int $size = null)
+    public function __construct(int $number = null, int $size = null, Cursor $cursor = null)
     {
-        if (!is_null($number) && $number >= 0) {
+        if (!is_null($number)) {
             $this->number = $number;
         }
-        if (!is_null($size) && $size >= 0) {
+        if (!is_null($size)) {
             $this->size = $size;
+        }
+        if (!is_null($cursor)) {
+            $this->cursor = $cursor;
+            $this->number = $cursor->getPageNumber();
+            $this->size = $cursor->getPageSize();
         }
     }
 
@@ -71,25 +80,31 @@ class Page
         return $this->getSize() * $this->getNumber();
     }
 
-    public function markAsInvalid()
-    {
-        $this->valid = false;
-    }
-
     public function isValid(): bool
     {
-        return $this->valid;
+        return $this->size > 0 && $this->number >= 0;
+    }
+
+    public function getCursor(): ?Cursor
+    {
+        return $this->cursor;
     }
 
     public function getCriteria(): Criteria
     {
-        $result = Criteria::create();
-        $result->setMaxResults($this->getSize());
-        $result->setFirstResult($this->getOffset());
-        return $result;
+        $cursor = $this->getCursor();
+        if ($cursor && $cursor->isValid()) {
+            return Criteria::create()
+                ->setMaxResults($cursor->getPageSize())
+                ->where($cursor->getItemExpression());
+        } else {
+            return Criteria::create()
+                ->setMaxResults($this->getSize())
+                ->setFirstResult($this->getOffset());
+        }
     }
 
-    public function getMeta(int $fullCount, int $limitedCount)
+    public function getMeta(int $totalNumberOfResults, int $limitedNumberOfResults)
     {
         if (!$this->isValid()) {
             return [];
@@ -99,9 +114,47 @@ class Page
             'current' => $this->getNumber(),
             'per-page' => $this->getSize(),
             'from' => $this->getOffset(),
-            'to' => $this->getOffset() + $limitedCount - 1,
-            'last-page' => (int)ceil($fullCount / $this->getSize()) - 1
+            'to' => $this->getOffset() + $limitedNumberOfResults - 1,
+            'last-page' => (int)ceil($totalNumberOfResults / $this->getSize()) - 1
 
         ];
+    }
+
+    public function cursorToNextPage(int $totalNumberOfResults, Criteria $criteria, $lastItemOnCurrentPage): Cursor
+    {
+        return Cursor::create()
+            ->withDirection(1)
+            ->withPageNumber($this->getNumber() + 1)
+            ->withPageSize($this->getSize())
+            ->withTotalNumberOfResults($totalNumberOfResults)
+            ->withOrderings($criteria->getOrderings())
+            ->withItem(
+                ...
+                $this->extractOrderingAttributes($lastItemOnCurrentPage, $criteria)
+            );
+    }
+
+    public function cursorToPrevPage(int $totalNumberOfResults, Criteria $criteria, $firstItemOnCurrentPage): Cursor
+    {
+        return Cursor::create()
+            ->withDirection(-1)
+            ->withPageNumber($this->getNumber() - 1)
+            ->withPageSize($this->getSize())
+            ->withTotalNumberOfResults($totalNumberOfResults)
+            ->withOrderings($criteria->getOrderings())
+            ->withItem(
+                ...
+                $this->extractOrderingAttributes($firstItemOnCurrentPage, $criteria)
+            );
+    }
+
+    protected function extractOrderingAttributes($subject, Criteria $criteria)
+    {
+        return array_map(
+            function (string $property) use ($subject) {
+                return (string)ObjectAccess::getProperty($subject, $property, true);
+            },
+            array_keys($criteria->getOrderings())
+        );
     }
 }

@@ -11,6 +11,8 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Controller;
  * source code.
  */
 
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Criteria;
 use Neos\Flow\Annotations as Flow;
 use Neos\Flow\Http\Helper\UriHelper;
 use Neos\Flow\Http\Uri;
@@ -169,8 +171,12 @@ class GenericModelController extends ApiController
         RequestArgument\Filter $filter = null,
         RequestArgument\Page $page = null
     ) {
+        $validCursor = $page && $page->getCursor() && $page->getCursor()->isValid();
+        if ($validCursor) {
+            $cursor = $page->getCursor();
+        }
 
-        if ($sort) {
+        if ($sort && !$validCursor) {
             $result = $result->matching($sort->getCriteria());
         }
         assert($result instanceof ExtraLazyPersistentCollection);
@@ -182,13 +188,25 @@ class GenericModelController extends ApiController
 
         if ($page) {
             $limitedResult = $result->matching($page->getCriteria());
+            assert($limitedResult instanceof ExtraLazyPersistentCollection);
+            if ($validCursor && $cursor->getDirection() === -1) {
+                $limitedResult = $limitedResult->revertOrdering();
+                $limitedResult = new ArrayCollection(array_reverse($limitedResult->toArray()));
+            }
         } else {
             $limitedResult = $result;
         }
-        assert($limitedResult instanceof ExtraLazyPersistentCollection);
 
         $topLevel = $this->relationshipIterator->createTopLevel($limitedResult);
-        $topLevel = $this->applyPaginationMetaToTopLevel($topLevel, count($result), count($limitedResult), $page);
+        $topLevel = $this->applyPaginationMetaToTopLevel(
+            $topLevel,
+            $validCursor ? $cursor->getTotalNumberOfResults() : count($result),
+            count($limitedResult),
+            $result->getCriteria(),
+            $limitedResult->first(),
+            $limitedResult->last(),
+            $page
+        );
 
         return $topLevel;
     }
@@ -364,21 +382,24 @@ class GenericModelController extends ApiController
 
     protected function applyPaginationMetaToTopLevel(
         TopLevel $topLevel,
-        int $resultCount,
-        int $limitedResultCount,
+        int $totalNumberOfResults,
+        int $limitedNumberOfResults,
+        Criteria $criteria,
+        $firstItemOnPage,
+        $lastItemOnPage,
         RequestArgument\Page $page = null
     ): TopLevel {
 
         $meta = $topLevel->getMeta();
         $links = $topLevel->getLinks();
 
-        $meta['page.total'] = $resultCount;
+        $meta['page.total'] = $totalNumberOfResults;
 
         if (!$page || !$page->isValid()) {
             return $topLevel;
         }
 
-        $pageMeta = $page->getMeta($resultCount, $limitedResultCount);
+        $pageMeta = $page->getMeta($totalNumberOfResults, $limitedNumberOfResults);
         foreach ($pageMeta as $key => $value) {
             $meta['page.' . $key] = $value;
         }
@@ -392,17 +413,36 @@ class GenericModelController extends ApiController
             $arguments = UriHelper::parseQueryIntoArguments($baseUri);
             $arguments['page'] = [
                 'size' => $page->getSize(),
-                'number' => $page->getNumber()
+                'number' => $pageNumber,
             ];
-            $arguments['page']['number'] = $pageNumber;
+            return (string)UriHelper::uriWithArguments($baseUri, $arguments);
+        };
+
+        $withCursor = function (RequestArgument\Cursor $cursor) use ($baseUri, $page) {
+            $arguments = UriHelper::parseQueryIntoArguments($baseUri);
+            $arguments['page'] = [
+                'cursor' => $cursor->__toString(),
+            ];
             return (string)UriHelper::uriWithArguments($baseUri, $arguments);
         };
 
         $links['current'] = $withPageNumber($pageMeta['current']);
+
         $links['first'] = $withPageNumber(0);
+
         $links['last'] = $withPageNumber($pageMeta['last-page']);
-        $links['next'] = $pageMeta['current'] < $pageMeta['last-page'] ? $withPageNumber($pageMeta['current'] + 1) : null;
-        $links['prev'] = $pageMeta['current'] > 0 ? $withPageNumber($pageMeta['current'] - 1) : null;
+
+        if ($pageMeta['current'] < $pageMeta['last-page']) {
+            $links['next'] = $withCursor(
+                $page->cursorToNextPage($totalNumberOfResults, $criteria, $lastItemOnPage)
+            );
+        }
+
+        if ($pageMeta['current'] > 0) {
+            $links['prev'] = $withCursor(
+                $page->cursorToPrevPage($totalNumberOfResults, $criteria, $firstItemOnPage)
+            );
+        }
 
         return $topLevel;
     }

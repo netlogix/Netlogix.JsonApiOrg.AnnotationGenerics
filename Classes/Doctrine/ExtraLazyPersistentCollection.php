@@ -71,8 +71,23 @@ class ExtraLazyPersistentCollection extends AbstractLazyCollection implements Se
         );
     }
 
+    public function revertOrdering(): self
+    {
+        $criteria = $this->getCriteria();
+        $ordering = $criteria->getOrderings();
+        $reverse = array_map(
+            function(string $ordering) {
+                return $ordering === Criteria::ASC ? Criteria::DESC : Criteria::ASC;
+            },
+            $ordering
+        );
+        return new self(
+            $this->initializer,
+            $criteria->orderBy($reverse)
+        );
+    }
 
-    protected function getCriteria(): Criteria
+    public function getCriteria(): Criteria
     {
         $cloneData = [
             'getWhereExpression' => [],
