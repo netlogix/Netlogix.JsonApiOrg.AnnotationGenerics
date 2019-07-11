@@ -11,8 +11,10 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Repository;
  * source code.
  */
 
+use Doctrine\Common\Collections\Criteria;
 use Doctrine\Common\Collections\Selectable;
 use Neos\Flow\Annotations as Flow;
+use Neos\Flow\Persistence\Repository;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Doctrine\ExtraLazyPersistentCollection;
 
 /**
@@ -28,11 +30,21 @@ trait SelectableRepository
 
     public function getSelectable(): Selectable
     {
-        return ExtraLazyPersistentCollection::createFromEntityPersister(
+        $selectable = ExtraLazyPersistentCollection::createFromEntityPersister(
             $this
                 ->entityManager
                 ->getUnitOfWork()
                 ->getEntityPersister((string)$this->entityClassName)
         );
+
+        if (($this instanceof Repository) && $this->defaultOrderings) {
+            $selectable = $selectable
+                ->matching(
+                    Criteria::create()
+                        ->orderBy($this->defaultOrderings)
+                );
+        }
+
+        return $selectable;
     }
 }
