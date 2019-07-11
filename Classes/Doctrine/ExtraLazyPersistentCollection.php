@@ -8,6 +8,8 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\Common\Collections\Criteria;
 use Doctrine\Common\Collections\Selectable;
 use Doctrine\ORM\LazyCriteriaCollection;
+use Doctrine\ORM\Mapping\ClassMetadata;
+use Doctrine\ORM\PersistentCollection;
 use Doctrine\ORM\Persisters\Entity\EntityPersister;
 use Neos\Flow\Annotations as Flow;
 
@@ -29,7 +31,7 @@ class ExtraLazyPersistentCollection extends AbstractLazyCollection implements Se
     }
 
     public static function createFromCollection(Collection $collection
-    ): ExtraLazyPersistentCollection {
+    ): self {
         if (!$collection instanceof Selectable) {
             throw new \LogicException(
                 sprintf(
@@ -43,12 +45,18 @@ class ExtraLazyPersistentCollection extends AbstractLazyCollection implements Se
             return $collection->matching($criteria);
         };
 
-        return new ExtraLazyPersistentCollection(
+        $collection = new self(
             $initializer
         );
+
+        if ($collection instanceof PersistentCollection) {
+            return self::addDefaultOrdering($collection, $collection->getTypeClass());
+        }
+
+        return $collection;
     }
 
-    public static function createFromEntityPersister(EntityPersister $entityPersister): ExtraLazyPersistentCollection
+    public static function createFromEntityPersister(EntityPersister $entityPersister): self
     {
         $initializer = function (Criteria $criteria) use ($entityPersister): Collection {
             return new LazyCriteriaCollection(
@@ -57,9 +65,11 @@ class ExtraLazyPersistentCollection extends AbstractLazyCollection implements Se
             );
         };
 
-        return new ExtraLazyPersistentCollection(
+        $collection = new self(
             $initializer
         );
+
+        return self::addDefaultOrdering($collection, $entityPersister->getClassMetadata());
     }
 
     public function matching(Criteria $criteria): Collection
@@ -76,7 +86,7 @@ class ExtraLazyPersistentCollection extends AbstractLazyCollection implements Se
         $criteria = $this->getCriteria();
         $ordering = $criteria->getOrderings();
         $reverse = array_map(
-            function(string $ordering) {
+            function (string $ordering) {
                 return $ordering === Criteria::ASC ? Criteria::DESC : Criteria::ASC;
             },
             $ordering
@@ -103,11 +113,21 @@ class ExtraLazyPersistentCollection extends AbstractLazyCollection implements Se
             $cloneData[$getter] = array_filter($cloneData[$getter]);
         }
 
+        $where = $cloneData['getWhereExpression']
+            ? Criteria::expr()->andX(... $cloneData['getWhereExpression'])
+            : null;
+
+        $orderings = array_reduce(
+            array_reverse($cloneData['getOrderings']),
+            function (array $last, array $next) {
+                return $next + array_diff_key($last, $next);
+            },
+            []
+        );
+
         return new Criteria(
-            $cloneData['getWhereExpression']
-                ? Criteria::expr()->andX(... $cloneData['getWhereExpression'])
-                : null,
-            array_shift($cloneData['getOrderings']),
+            $where,
+            $orderings,
             array_shift($cloneData['getFirstResult']),
             array_shift($cloneData['getMaxResults'])
         );
@@ -116,5 +136,17 @@ class ExtraLazyPersistentCollection extends AbstractLazyCollection implements Se
     protected function doInitialize()
     {
         $this->collection = ($this->initializer)($this->getCriteria());
+    }
+
+    protected static function addDefaultOrdering(self $collection, ClassMetadata $metadata)
+    {
+        $identifierFieldNames = $metadata->getIdentifierFieldNames();
+        $defaultOrdering = array_fill_keys($identifierFieldNames, Criteria::ASC);
+
+        return $collection
+            ->matching(
+                Criteria::create()
+                    ->orderBy($defaultOrdering)
+            );
     }
 }
