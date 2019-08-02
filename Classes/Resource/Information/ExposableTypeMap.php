@@ -56,22 +56,55 @@ class ExposableTypeMap extends \Netlogix\JsonApiOrg\Resource\Information\Exposab
                     $type = strtolower(end($typeComponents[0]) . '/' . str_replace('\\', '.', $typeComponents[1]));
                 }
                 $this->oneToOneTypeToClassMap[$className] = $type;
-                foreach ($this->reflectionService->getPropertyNamesByAnnotation($className,
-                    JsonApi\ExposeProperty::class) as $propertyName) {
-                    try {
-                        $this->registerKnownPropertyType($type, $propertyName,
-                            $this->reflectionService->getPropertyTagValues($className, $propertyName, 'var')[0] ?: '');
-                    } catch (\Exception $e) {
+
+                $propertyNames = $this
+                    ->reflectionService
+                    ->getPropertyNamesByAnnotation($className, JsonApi\ExposeProperty::class);
+                array_walk(
+                    $propertyNames,
+                    function (string $propertyName) use ($type, $className) {
+                        try {
+                            $this->registerKnownPropertyType(
+                                $type,
+                                $propertyName,
+                                $this
+                                    ->reflectionService
+                                    ->getPropertyTagValues($className, $propertyName, 'var')[0]
+                                    ?: ''
+                            );
+                        } catch (\Exception $e) {
+                        }
                     }
-                }
-                foreach ($this->reflectionService->getMethodsAnnotatedWith($className,
-                    JsonApi\ExposeProperty::class) as $methodName) {
-                    try {
-                        $this->registerKnownPropertyType($type, $propertyName,
-                            $this->reflectionService->getMethodTagsValues($className, $methodName)['return'][0] ?: '');
-                    } catch (\Exception $e) {
+                );
+
+                $methodNames = $this
+                    ->reflectionService
+                    ->getMethodsAnnotatedWith($className, JsonApi\ExposeProperty::class);
+                array_walk(
+                    $methodNames,
+                    function (string $methodName) use ($type, $className) {
+                        $methodNameLength = strlen($methodName);
+                        if ($methodNameLength > 2 && substr($methodName, 0, 2) === 'is') {
+                            $propertyName = lcfirst(substr($methodName, 2));
+                        } elseif ($methodNameLength > 3 && (($methodNamePrefix = substr($methodName, 0, 3)) === 'get' || $methodNamePrefix === 'has')) {
+                            $propertyName = lcfirst(substr($methodName, 3));
+                        } else {
+                            return;
+                        }
+                        try {
+                            $this->registerKnownPropertyType(
+                                $type,
+                                $propertyName,
+                                $this
+                                    ->reflectionService
+                                    ->getMethodTagsValues($className, $methodName)['return'][0]
+                                    ?: ''
+                            );
+                        } catch (\Exception $e) {
+                        }
                     }
-                }
+                );
+
             }
         }
         parent::initializeObject();
