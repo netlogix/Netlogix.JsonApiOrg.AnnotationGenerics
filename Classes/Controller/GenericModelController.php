@@ -324,20 +324,28 @@ class GenericModelController extends ApiController
 
         $this->remapActionArgument(
             'filter',
-            str_replace('\\Model\\', '\\Repository\\Filter\\', $relationshipClassName ?: $modelClassName) . 'Filter'
+            str_replace('\\Model\\', '\\Repository\\Filter\\', $relationshipClassName ?: $modelClassName) . 'Filter',
+            []
         );
     }
 
-    protected function remapActionArgument(string $argumentName, string $modelClassName)
+    protected function remapActionArgument(string $argumentName, string $modelClassName, $default = null)
     {
-        if (!$this->arguments->hasArgument($argumentName)) {
+        $argumentTemplate = $this->arguments->hasArgument($argumentName)
+            ? $this->arguments->getArgument($argumentName)
+            : $default;
+
+        if (null === $argumentTemplate) {
             return;
         }
 
-        $argumentTemplate = $this->arguments->getArgument($argumentName);
+        if (false === class_exists($modelClassName)) {
+            return;
+        }
+
         $newArgument = $this->objectManager->get(
             get_class($argumentTemplate),
-            $argumentTemplate->getName(),
+            $argumentName,
             $modelClassName
         );
 
