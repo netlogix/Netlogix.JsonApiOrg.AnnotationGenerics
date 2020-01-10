@@ -92,13 +92,13 @@ class ExposableTypeMap extends \Netlogix\JsonApiOrg\Resource\Information\Exposab
                             return;
                         }
                         try {
+                            $returnType = $this->reflectionService->getMethodDeclaredReturnType($className, $methodName)
+                                ?? $this->reflectionService->getMethodTagsValues($className, $methodName)['return'][0];
+
                             $this->registerKnownPropertyType(
                                 $type,
                                 $propertyName,
-                                $this
-                                    ->reflectionService
-                                    ->getMethodTagsValues($className, $methodName)['return'][0]
-                                    ?: ''
+                                $returnType ?: ''
                             );
                         } catch (\Exception $e) {
                         }
