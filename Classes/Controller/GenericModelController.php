@@ -331,11 +331,7 @@ class GenericModelController extends ApiController
 
     protected function remapActionArgument(string $argumentName, string $modelClassName, $default = null)
     {
-        $argumentTemplate = $this->arguments->hasArgument($argumentName)
-            ? $this->arguments->getArgument($argumentName)
-            : $default;
-
-        if (null === $argumentTemplate) {
+        if (!$this->arguments->hasArgument($argumentName)) {
             return;
         }
 
@@ -343,9 +339,14 @@ class GenericModelController extends ApiController
             return;
         }
 
+        if (null !== $default && false === $this->request->hasArgument($argumentName)) {
+            $this->request->setArgument($argumentName, $default);
+        }
+
+        $argumentTemplate = $this->arguments->getArgument($argumentName);
         $newArgument = $this->objectManager->get(
             get_class($argumentTemplate),
-            $argumentName,
+            $argumentTemplate->getName(),
             $modelClassName
         );
 
