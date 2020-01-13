@@ -116,7 +116,7 @@ class ExposableTypeMap extends \Netlogix\JsonApiOrg\Resource\Information\Exposab
             return;
         }
 
-        $typeNameAndType = $typeName . '->' . $propertyName;
+        $typeNameAndType = strtolower($typeName . '->' . $propertyName);
 
         $varType = TypeHandling::parseType($varType);
         $isCollection = (bool)$varType['elementType'];
