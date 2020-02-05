@@ -11,12 +11,14 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Repository;
  * source code.
  */
 
+use Doctrine\Common\Collections\Criteria;
 use Doctrine\Common\Collections\Selectable;
 use Neos\Flow\Annotations as Flow;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Doctrine\ExtraLazyPersistentCollection;
 
 /**
  * @property-read string $entityClassName
+ * @property-read array $defaultOrderings
  */
 trait SelectableRepository
 {
@@ -33,6 +35,9 @@ trait SelectableRepository
                 ->entityManager
                 ->getUnitOfWork()
                 ->getEntityPersister((string)$this->entityClassName)
-        );
+        )
+            ->matching(
+                Criteria::create()->orderBy($this->defaultOrderings)
+            );
     }
 }
