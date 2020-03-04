@@ -92,7 +92,7 @@ class ExtraLazyPersistentCollection extends AbstractLazyCollection implements Se
             $cloneData['getWhereExpression']
                 ? Criteria::expr()->andX(... $cloneData['getWhereExpression'])
                 : null,
-            array_shift($cloneData['getOrderings']),
+            $this->mergeOrderingsByRespectingTheirPriority($cloneData['getOrderings']),
             array_shift($cloneData['getFirstResult']),
             array_shift($cloneData['getMaxResults'])
         );
@@ -101,5 +101,21 @@ class ExtraLazyPersistentCollection extends AbstractLazyCollection implements Se
     protected function doInitialize()
     {
         $this->collection = ($this->initializer)($this->getCriteria());
+    }
+
+    /**
+     * Corresponds to https://github.com/doctrine/orm/pull/7766/files#diff-108586f774fc8acb02163ed709e05e86R675
+     */
+    protected function mergeOrderingsByRespectingTheirPriority(array $orderings): array
+    {
+        $orderings = array_reduce($orderings, static function($all, $next) {
+            foreach ($next as $property => $direction) {
+                if (!isset($all[$property])) {
+                    $all[$property] = $direction;
+                }
+            }
+            return $all;
+        }, []);
+        return $orderings;
     }
 }
