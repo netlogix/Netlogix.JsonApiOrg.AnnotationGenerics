@@ -20,7 +20,6 @@ use Neos\Utility\Exception\InvalidTypeException;
 use Neos\Utility\ObjectAccess;
 use Neos\Utility\TypeHandling;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Configuration\ConfigurationProvider;
-use Netlogix\JsonApiOrg\AnnotationGenerics\Controller\GenericModelController;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\GenericModelInterface;
 use Netlogix\JsonApiOrg\Resource\Information\ExposableTypeMapInterface;
 use Netlogix\JsonApiOrg\Resource\Information\LinksAwareResourceInformationInterface;
@@ -34,8 +33,6 @@ use Netlogix\JsonApiOrg\Schema\Relationships;
  */
 class GenericModelResourceInformation extends ResourceInformation implements ResourceInformationInterface, LinksAwareResourceInformationInterface, MetaAwareResourceInformationInterface
 {
-    const DOMAIN_MODEL_PATTERN = '%(?<vendor>[^\\\\]+)\\\\(?<package>.*)(\\\\(?<subPackage>[^\\\\]+))?\\\\Domain\\\\(Model|Command)\\\\(?<resourceType>.+)$%i';
-
     /**
      * @var int
      */
@@ -85,21 +82,9 @@ class GenericModelResourceInformation extends ResourceInformation implements Res
             $settings['argumentName'] => $resource,
         ];
         $type = TypeHandling::getTypeForValue($resource);
-        $controllerClassName = str_replace('.', '\\',
-            $settings['packageKey'] . '\\Controller\\' . $settings['controllerName'] . 'Controller');
-        if (preg_match(self::DOMAIN_MODEL_PATTERN, $type,
-                $matches) && class_exists($controllerClassName) && is_subclass_of($controllerClassName,
-                GenericModelController::class)) {
-            $result['subPackage'] = [];
-            foreach (explode('\\', $matches['subPackage'] ?: $matches['package']) as $subPackage) {
-                $result['subPackage'][] = lcfirst($subPackage);
-            }
-            $result['subPackage'] = join('.', $result['subPackage']);
-            $result['resourceType'] = [];
-            foreach (explode('\\', $matches['resourceType']) as $resourceType) {
-                $result['resourceType'][] = lcfirst($resourceType);
-            }
-            $result['resourceType'] = join('.', $result['resourceType']);
+        $typeString = (string)$this->map->getType($type);
+        if (preg_match('%^(?<subPackage>[^/]+)/(?<resourceType>.+)$%', (string)$typeString)) {
+            list($result['subPackage'], $result['resourceType']) = explode('/', $typeString, 2);
         }
 
         $resultCache->offsetSet($resource, $result);
