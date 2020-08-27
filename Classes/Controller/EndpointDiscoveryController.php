@@ -14,6 +14,7 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Controller;
 use Neos\Cache\Exception;
 use Neos\Cache\Frontend\VariableFrontend;
 use Neos\Flow\Annotations as Flow;
+use Neos\Flow\Mvc\ActionRequest;
 use Neos\Flow\Mvc\Controller\ActionController;
 use Neos\Flow\Mvc\Exception\NoMatchingRouteException;
 use Neos\Flow\Mvc\Routing\Exception\MissingActionNameException;
@@ -113,7 +114,7 @@ class EndpointDiscoveryController extends ActionController
      */
     public function indexAction(string $packageKey = '')
     {
-        $cacheIdentifier = md5($packageKey);
+        $cacheIdentifier = $this->getCacheIdentifier($packageKey);
         if ($this->resultsCache->has($cacheIdentifier)) {
             $result = $this->resultsCache->get($cacheIdentifier);
         } else {
@@ -239,4 +240,16 @@ class EndpointDiscoveryController extends ActionController
         );
     }
 
+    protected function getCacheIdentifier(string $packageKey): string
+    {
+        $request = $this->request;
+        assert($request instanceof ActionRequest);
+        $uri = $request
+            ->getHttpRequest()
+            ->getUri()
+            ->withQuery('')
+            ->__toString();
+        $cacheIdentifier = md5($packageKey . $uri);
+        return $cacheIdentifier;
+    }
 }
