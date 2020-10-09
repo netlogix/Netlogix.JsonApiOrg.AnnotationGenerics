@@ -14,7 +14,9 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Resource;
 use Neos\Flow\Annotations as Flow;
 use Neos\Utility\Exception\InvalidTypeException;
 use Neos\Utility\Exception\PropertyNotAccessibleException;
+use Netlogix\JsonApiOrg\AnnotationGenerics\Cache\ExposedValueObjectCache;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Configuration\ConfigurationProvider;
+use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\ExposedValueObjectInterface;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\GenericModelInterface;
 use Netlogix\JsonApiOrg\Domain\Dto\AbstractResource;
 use Netlogix\JsonApiOrg\Resource\Information\ResourceInformationInterface;
@@ -26,6 +28,12 @@ class GenericModelResource extends AbstractResource
      * @Flow\Inject
      */
     protected $configurationProvider;
+
+    /**
+     * @var ExposedValueObjectCache
+     * @Flow\Inject
+     */
+    protected $exposedValueObjectCache;
 
     protected $identityAttributes = [];
 
@@ -56,6 +64,9 @@ class GenericModelResource extends AbstractResource
         $this->relationshipsToBeApiExposed = $settings['relationshipsToBeApiExposed'];
         ksort($this->relationshipsToBeApiExposed);
         $this->identityAttributes = $settings['identityAttributes'];
+        if ($this->payload instanceof ExposedValueObjectInterface) {
+            $this->exposedValueObjectCache->set($this->getId(), $this->payload);
+        }
     }
 
     /**
