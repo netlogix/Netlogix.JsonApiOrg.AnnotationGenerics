@@ -11,6 +11,7 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Resource;
  * source code.
  */
 
+use Doctrine\Common\Collections\AbstractLazyCollection;
 use Neos\Flow\Annotations as Flow;
 use Neos\Flow\Http\Uri;
 use Neos\Flow\Mvc\Exception\NoMatchingRouteException;
@@ -122,7 +123,7 @@ class GenericModelResourceInformation extends ResourceInformation implements Res
         return [];
     }
 
-    public function getMetaForRelationship($payload, $relationshipName, $relationshipType = null)
+    public function getMetaForRelationship($payload, $relationshipName, $relationshipType = null, $included = false)
     {
         $result = [];
         $relationshipType = $relationshipType ?: $this->getResource($payload)->getRelationshipsToBeApiExposed()[$relationshipName];
@@ -130,6 +131,10 @@ class GenericModelResourceInformation extends ResourceInformation implements Res
             try {
                 $data = ObjectAccess::getProperty($payload, $relationshipName);
                 if ($data !== null && $data !== false) {
+                    if ($included && $data instanceof AbstractLazyCollection) {
+                        // Initialize collection to prevent multiple queries (One for count and one for the data)
+                        $data = $data->toArray();
+                    }
                     $result['page'] = [
                         'total' => count($data),
                     ];
