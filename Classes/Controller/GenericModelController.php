@@ -72,6 +72,11 @@ class GenericModelController extends ApiController
     ) {
         try {
             $repository = $this->getRepositoryForResourceType($resourceType);
+            if (class_exists('Tideways\Profiler')) {
+                \Tideways\Profiler::setTransactionName(
+                    sprintf('%s::listAction', $repository->getEntityClassName())
+                );
+            }
         } catch (UnknownObjectException $e) {
             $this->response->setStatus(400);
             $this->response->setHeader('Content-Type', current($this->supportedMediaTypes));
@@ -102,6 +107,11 @@ class GenericModelController extends ApiController
      */
     public function showAction(ReadModelInterface $resource)
     {
+        if (class_exists('Tideways\Profiler')) {
+            \Tideways\Profiler::setTransactionName(
+                sprintf('%s::showAction', get_class($resource))
+            );
+        }
         $topLevel = $this->relationshipIterator->createTopLevel($resource);
         $this->view->assign('value', $topLevel);
     }
@@ -114,6 +124,11 @@ class GenericModelController extends ApiController
      */
     public function createAction(WriteModelInterface $resource, string $resourceType = '')
     {
+        if (class_exists('Tideways\Profiler')) {
+            \Tideways\Profiler::setTransactionName(
+                sprintf('%s::createAction', get_class($resource))
+            );
+        }
         $this->getRepositoryForResourceType($resourceType)->add($resource);
         $topLevel = $this->relationshipIterator->createTopLevel($resource);
         $this->view->assign('value', $topLevel);
@@ -126,6 +141,11 @@ class GenericModelController extends ApiController
      */
     public function showRelationshipAction(ReadModelInterface $resource, string $relationshipName)
     {
+        if (class_exists('Tideways\Profiler')) {
+            \Tideways\Profiler::setTransactionName(
+                sprintf('%s::showRelationshipAction', get_class($resource))
+            );
+        }
         $resourceResource = $this->findResourceResource($resource);
         $relationship = ObjectAccess::getProperty($resourceResource->getRelationships(),
             $relationshipName);
@@ -146,6 +166,11 @@ class GenericModelController extends ApiController
         RequestArgument\Filter $filter = null,
         RequestArgument\Page $page = null
     ) {
+        if (class_exists('Tideways\Profiler')) {
+            \Tideways\Profiler::setTransactionName(
+                sprintf('%s::showRelatedAction', get_class($resource))
+            );
+        }
         $resourceResource = $this->findResourceResource($resource);
         $relationship = $resourceResource->getPayloadProperty($relationshipName);
 
