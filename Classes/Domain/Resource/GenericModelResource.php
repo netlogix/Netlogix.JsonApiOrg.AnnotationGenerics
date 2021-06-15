@@ -11,18 +11,22 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Resource;
  * source code.
  */
 
+use DateTime;
 use Neos\Flow\Annotations as Flow;
 use Neos\Utility\Exception\InvalidTypeException;
 use Neos\Utility\Exception\PropertyNotAccessibleException;
+use Neos\Utility\ObjectAccess;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Cache\ExposedValueObjectCache;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Configuration\ConfigurationProvider;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\ExposedValueObjectInterface;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\GenericModelInterface;
+use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\JsonApiIdentifier;
 use Netlogix\JsonApiOrg\Domain\Dto\AbstractResource;
 use Netlogix\JsonApiOrg\Resource\Information\ResourceInformationInterface;
 
 class GenericModelResource extends AbstractResource
 {
+
     /**
      * @var ConfigurationProvider
      * @Flow\Inject
@@ -77,8 +81,8 @@ class GenericModelResource extends AbstractResource
     public function getPayloadProperty($propertyName)
     {
         $result = parent::getPayloadProperty($propertyName);
-        if (is_object($result) && $result instanceof \DateTime) {
-            return $result->format(\DateTime::W3C);
+        if (is_object($result) && $result instanceof DateTime) {
+            return $result->format(\DateTimeInterface::W3C);
         } else {
             return $result;
         }
@@ -89,22 +93,28 @@ class GenericModelResource extends AbstractResource
         return parent::getPayload();
     }
 
-    public function getId()
+    public function getId(): string
     {
         if (!$this->identityAttributes) {
-            return parent::getId();
+            return (string)parent::getId();
         }
         $payload = $this->getPayload();
-        $result = join(
-            "|",
+        return implode(
+            '|',
             array_map(
                 function ($identityAttribute) use ($payload) {
-                    return \Neos\Utility\ObjectAccess::getProperty($payload, $identityAttribute);
+                    $identity = ObjectAccess::getProperty($payload, $identityAttribute);
+                    if ($identity instanceof JsonApiIdentifier) {
+                        return (string)$identity->toString();
+                    }
+                    if (is_object($identity) && !$identity instanceof \Stringable) {
+                        new \InvalidArgumentException('Using object as identifier without implementing Stringable interface', 1623823320);
+                    }
+                    return (string)$identity;
                 },
                 $this->identityAttributes
             )
         );
-        return $result;
     }
 
 }

@@ -213,9 +213,7 @@ class GenericModelController extends ApiController
         assert($limitedResult instanceof ExtraLazyPersistentCollection);
 
         $topLevel = $this->relationshipIterator->createTopLevel($limitedResult);
-        $topLevel = $this->applyPaginationMetaToTopLevel($topLevel, count($result), count($limitedResult), $page);
-
-        return $topLevel;
+        return $this->applyPaginationMetaToTopLevel($topLevel, count($result), count($limitedResult), $page);
     }
 
     protected function initializeListAction()

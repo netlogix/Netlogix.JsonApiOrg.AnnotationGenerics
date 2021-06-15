@@ -5,11 +5,12 @@
     "homepage": "http://websolutions.netlogix.de/",
     "license": ["MIT"],
     "require": {
-        "php": "^7.0",
+        "php": "^7.2",
         "ext-json": "*",
-        "neos/flow": "*",
         "doctrine/collections": "^1.4",
-        "netlogix/jsonapiorg": "^5.0"
+        "neos/flow": "^5.3",
+        "netlogix/jsonapiorg": "^5.0",
+        "symfony/polyfill-php80": "*"
     },
     "autoload": {
         "psr-4": {
