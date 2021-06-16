@@ -249,7 +249,6 @@ class EndpointDiscoveryController extends ActionController
             ->getUri()
             ->withQuery('')
             ->__toString();
-        $cacheIdentifier = md5($packageKey . $uri);
-        return $cacheIdentifier;
+        return md5($packageKey . $uri);
     }
 }
