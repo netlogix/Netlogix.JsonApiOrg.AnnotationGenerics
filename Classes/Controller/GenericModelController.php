@@ -11,6 +11,7 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Controller;
  * source code.
  */
 
+use Doctrine\Common\Collections\Selectable;
 use Neos\Flow\Annotations as Flow;
 use Neos\Flow\Http\Helper\UriHelper;
 use Neos\Flow\Http\Uri;
@@ -90,7 +91,6 @@ class GenericModelController extends ApiController
         }
 
         $result = $repository->getSelectable();
-        assert($result instanceof ExtraLazyPersistentCollection);
 
         $topLevel = $this->createTopLevelOfCollection(
             $result,
@@ -189,7 +189,7 @@ class GenericModelController extends ApiController
     }
 
     protected function createTopLevelOfCollection(
-        ExtraLazyPersistentCollection $result,
+        Selectable $result,
         RequestArgument\Sorting $sort = null,
         RequestArgument\Filter $filter = null,
         RequestArgument\Page $page = null
@@ -198,19 +198,16 @@ class GenericModelController extends ApiController
         if ($sort) {
             $result = $result->matching($sort->getCriteria());
         }
-        assert($result instanceof ExtraLazyPersistentCollection);
 
         if ($filter) {
             $result = $result->matching($filter->getCriteria());
         }
-        assert($result instanceof ExtraLazyPersistentCollection);
 
         if ($page) {
             $limitedResult = $result->matching($page->getCriteria());
         } else {
             $limitedResult = $result;
         }
-        assert($limitedResult instanceof ExtraLazyPersistentCollection);
 
         $topLevel = $this->relationshipIterator->createTopLevel($limitedResult);
         return $this->applyPaginationMetaToTopLevel($topLevel, count($result), count($limitedResult), $page);
