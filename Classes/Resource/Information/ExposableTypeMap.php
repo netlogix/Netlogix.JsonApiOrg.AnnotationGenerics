@@ -12,13 +12,13 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Resource\Information;
  */
 
 use Neos\Flow\Annotations as Flow;
-use Neos\Flow\Log\PsrSystemLoggerInterface;
 use Neos\Flow\ObjectManagement\ObjectManagerInterface;
 use Neos\Flow\Package\PackageManager;
 use Neos\Flow\Reflection\ReflectionService;
 use Neos\Utility\TypeHandling;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Annotations as JsonApi;
 use Netlogix\JsonApiOrg\Resource\Information\ExposableTypeMapInterface;
+use Psr\Log\LoggerInterface;
 
 /**
  * @Flow\Scope("singleton")
@@ -35,8 +35,8 @@ class ExposableTypeMap extends \Netlogix\JsonApiOrg\Resource\Information\Exposab
     protected $objectManager;
 
     /**
-     * @Flow\Inject
-     * @var PsrSystemLoggerInterface
+     * @var LoggerInterface
+     * @Flow\Inject(name="Neos.Flow:SystemLogger")
      */
     protected $psrSystemLoggerInterface;
 

@@ -19,7 +19,7 @@ use Neos\Flow\Mvc\Controller\ActionController;
 use Neos\Flow\Mvc\Exception\NoMatchingRouteException;
 use Neos\Flow\Mvc\Routing\Exception\MissingActionNameException;
 use Neos\Flow\ObjectManagement\ObjectManagerInterface;
-use Neos\Flow\Package\PackageManagerInterface;
+use Neos\Flow\Package\PackageManager;
 use Neos\Flow\Persistence\Exception\UnknownObjectException;
 use Neos\Flow\Property\Exception\FormatNotSupportedException;
 use Neos\Flow\Reflection\ReflectionService;
@@ -74,7 +74,7 @@ class EndpointDiscoveryController extends ActionController
     protected $objectManager;
 
     /**
-     * @var PackageManagerInterface
+     * @var PackageManager
      * @Flow\Inject
      */
     protected $packageManager;
