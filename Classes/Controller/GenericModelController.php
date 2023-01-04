@@ -12,9 +12,9 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Controller;
  */
 
 use Doctrine\Common\Collections\Selectable;
+use GuzzleHttp\Psr7\Uri;
 use Neos\Flow\Annotations as Flow;
 use Neos\Flow\Http\Helper\UriHelper;
-use Neos\Flow\Http\Uri;
 use Neos\Flow\Mvc\ActionRequest;
 use Neos\Flow\Mvc\Controller\Argument;
 use Neos\Flow\Mvc\Exception\InvalidArgumentNameException;
@@ -79,8 +79,8 @@ class GenericModelController extends ApiController
                 );
             }
         } catch (UnknownObjectException $e) {
-            $this->response->setStatus(400);
-            $this->response->setHeader('Content-Type', current($this->supportedMediaTypes));
+            $this->response->setStatusCode(400);
+            $this->response->setContentType(current($this->supportedMediaTypes));
             $result = [
                 'errors' => [
                     'code' => 400,

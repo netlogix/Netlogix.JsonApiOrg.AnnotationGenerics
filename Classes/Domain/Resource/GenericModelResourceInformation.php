@@ -12,8 +12,9 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Resource;
  */
 
 use Doctrine\Common\Collections\AbstractLazyCollection;
+use GuzzleHttp\Psr7\Uri;
 use Neos\Flow\Annotations as Flow;
-use Neos\Flow\Http\Uri;
+use Neos\Flow\Http\Helper\UriHelper;
 use Neos\Flow\Mvc\Exception\NoMatchingRouteException;
 use Neos\Flow\Mvc\Routing\Exception\MissingActionNameException;
 use Neos\Flow\Property\Exception\FormatNotSupportedException;
@@ -28,6 +29,7 @@ use Netlogix\JsonApiOrg\Resource\Information\MetaAwareResourceInformationInterfa
 use Netlogix\JsonApiOrg\Resource\Information\ResourceInformation;
 use Netlogix\JsonApiOrg\Resource\Information\ResourceInformationInterface;
 use Netlogix\JsonApiOrg\Schema\Relationships;
+use Psr\Http\Message\UriInterface;
 
 /**
  * @Flow\Scope("singleton")
@@ -104,12 +106,12 @@ class GenericModelResourceInformation extends ResourceInformation implements Res
         if ($relationshipType === Relationships::RELATIONSHIP_TYPE_COLLECTION) {
             try {
                 $result['first'] = $this->getPublicRelatedUri($payload, $relationshipName);
-                $arguments = $result['first']->getArguments();
+                $arguments = UriHelper::parseQueryIntoArguments($result['first']);
                 $arguments['page'] = [
                     'number' => 0,
                     'size' => 25,
                 ];
-                $result['first']->setQuery(http_build_query($arguments));
+                $result['first'] = $result['first']->withQuery(http_build_query($arguments));
                 $result['first'] = (string)$result['first'];
             } catch (NoMatchingRouteException $e) {
 
@@ -164,12 +166,12 @@ class GenericModelResourceInformation extends ResourceInformation implements Res
      * @param mixed $resource
      * @param string $controllerActionName
      * @param array $controllerArguments
-     * @return Uri
+     * @return UriInterface
      * @throws FormatNotSupportedException
      * @throws InvalidTypeException
      * @throws MissingActionNameException
      */
-    protected function getPublicUri($resource, $controllerActionName, array $controllerArguments = array()): Uri
+    protected function getPublicUri($resource, $controllerActionName, array $controllerArguments = array()): UriInterface
     {
         $settings = $this->configurationProvider->getSettingsForType($resource);
 

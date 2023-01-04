@@ -8,6 +8,7 @@
         "php": "^8.1",
         "ext-json": "*",
         "doctrine/collections": "^1.4",
+        "guzzlehttp/psr7": "^1.9 || ^2.4",
         "neos/flow": "^8.2",
         "netlogix/jsonapiorg": "^5.0"
     },

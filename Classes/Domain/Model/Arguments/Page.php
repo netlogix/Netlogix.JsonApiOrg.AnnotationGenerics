@@ -12,9 +12,6 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\Arguments;
  */
 
 use Doctrine\Common\Collections\Criteria;
-use Neos\Flow\Http\Helper\UriHelper;
-use Neos\Flow\Http\Uri;
-use Netlogix\JsonApiOrg\Schema\TopLevel;
 
 class Page
 {
