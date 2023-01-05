@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Netlogix\JsonApiOrg\AnnotationGenerics\Annotations;
@@ -18,6 +19,7 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Annotations;
  * @Annotation
  * @Target("CLASS")
  */
+#[\Attribute(\Attribute::TARGET_CLASS)]
 final class ExposeType
 {
     /**
@@ -83,4 +85,22 @@ final class ExposeType
      * @var bool
      */
     public $private = false;
+
+    public function __construct(
+        string $packageKey,
+        string $typeName = null,
+        string $controllerName = null,
+        string $subPackageKey = null,
+        string $actionName = 'index',
+        string $argumentName = 'resource',
+        bool $private = false
+    ) {
+        $this->packageKey = $packageKey;
+        $this->typeName = $typeName;
+        $this->controllerName = $controllerName;
+        $this->subPackageKey = $subPackageKey;
+        $this->actionName = $actionName;
+        $this->argumentName = $argumentName;
+        $this->private = $private;
+    }
 }

@@ -19,6 +19,7 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Annotations;
  * @Annotation
  * @Target({"METHOD", "PROPERTY"})
  */
+#[\Attribute(\Attribute::TARGET_METHOD|\Attribute::TARGET_PROPERTY)]
 final class ExposeProperty
 {
     /**
@@ -27,5 +28,10 @@ final class ExposeProperty
      *
      * @var boolean
      */
-    public $exposeAsAttribute = null;
+    public $exposeAsAttribute = false;
+
+    public function __construct(bool $exposeAsAttribute = false)
+    {
+        $this->exposeAsAttribute = $exposeAsAttribute;
+    }
 }
