@@ -129,7 +129,6 @@ class ConfigurationProvider
                     && substr($methodName, 0, 2) !== 'is'
                     && substr($methodName, 0, 3) !== 'has'
                 )
-                || !is_callable([$type, $methodName])
             ) {
                 continue;
             }
