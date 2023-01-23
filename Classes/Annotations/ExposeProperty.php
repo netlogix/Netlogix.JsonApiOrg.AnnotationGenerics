@@ -22,16 +22,9 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Annotations;
 #[\Attribute(\Attribute::TARGET_METHOD|\Attribute::TARGET_PROPERTY)]
 final class ExposeProperty
 {
-    /**
-     * If this is set, the property gets exposed as an attribute, no matter
-     * what the actual property annotation says.
-     *
-     * @var boolean
-     */
-    public $exposeAsAttribute = false;
-
-    public function __construct(bool $exposeAsAttribute = false)
-    {
-        $this->exposeAsAttribute = $exposeAsAttribute;
+    public function __construct(
+        public readonly bool $exposeAsAttribute = false,
+        public readonly mixed $defaultValue = null
+    ) {
     }
 }
