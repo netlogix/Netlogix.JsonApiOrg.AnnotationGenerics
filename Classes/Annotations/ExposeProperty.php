@@ -3,13 +3,8 @@ declare(strict_types=1);
 
 namespace Netlogix\JsonApiOrg\AnnotationGenerics\Annotations;
 
-/*
- * This file is part of the Netlogix.JsonApiOrg.AnnotationGenerics package.
- *
- * This package is Open Source Software. For the full copyright and license
- * information, please view the LICENSE file which was distributed with this
- * source code.
- */
+use Attribute;
+use Doctrine\Common\Annotations\Annotation\NamedArgumentConstructor;
 
 /**
  * Each property meant to be exposed either as an attribute or as a relationship
@@ -18,8 +13,9 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Annotations;
  *
  * @Annotation
  * @Target({"METHOD", "PROPERTY"})
+ * @NamedArgumentConstructor
  */
-#[\Attribute(\Attribute::TARGET_METHOD|\Attribute::TARGET_PROPERTY)]
+#[Attribute(Attribute::TARGET_METHOD| Attribute::TARGET_PROPERTY)]
 final class ExposeProperty
 {
     public function __construct(
