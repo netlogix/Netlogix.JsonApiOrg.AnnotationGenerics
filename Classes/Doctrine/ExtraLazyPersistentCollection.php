@@ -62,6 +62,9 @@ class ExtraLazyPersistentCollection extends AbstractLazyCollection implements Se
         );
     }
 
+    /**
+     * @return self
+     */
     public function matching(Criteria $criteria): ExtraLazyPersistentCollection
     {
         return new self(
