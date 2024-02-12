@@ -11,14 +11,15 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Resource\Information;
  * source code.
  */
 
+use Doctrine\Common\Collections\Collection;
 use Neos\Flow\Annotations as Flow;
-use Neos\Flow\Log\PsrSystemLoggerInterface;
 use Neos\Flow\ObjectManagement\ObjectManagerInterface;
 use Neos\Flow\Package\PackageManager;
 use Neos\Flow\Reflection\ReflectionService;
 use Neos\Utility\TypeHandling;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Annotations as JsonApi;
 use Netlogix\JsonApiOrg\Resource\Information\ExposableTypeMapInterface;
+use Psr\Log\LoggerInterface;
 
 /**
  * @Flow\Scope("singleton")
@@ -35,8 +36,8 @@ class ExposableTypeMap extends \Netlogix\JsonApiOrg\Resource\Information\Exposab
     protected $objectManager;
 
     /**
-     * @Flow\Inject
-     * @var PsrSystemLoggerInterface
+     * @var LoggerInterface
+     * @Flow\Inject(name="Neos.Flow:SystemLogger")
      */
     protected $psrSystemLoggerInterface;
 
@@ -173,9 +174,31 @@ class ExposableTypeMap extends \Netlogix\JsonApiOrg\Resource\Information\Exposab
                             return;
                         }
 
-                        $classNameToMethodNamesMap[$className][$propertyName] = $reflectionService
-                            ->getMethodTagsValues($className, $methodName)['return'][0]
-                            ?: '';
+                        $declaredReturnType = $reflectionService->getMethodDeclaredReturnType($className, $methodName);
+                        if (is_subclass_of($declaredReturnType, Collection::class) || $declaredReturnType === null) {
+                            $declaredReturnType = $reflectionService->getMethodTagsValues($className, $methodName)['return'][0] ?: '';
+                        }
+                        $classNameToMethodNamesMap[$className][$propertyName] = $declaredReturnType;
+                    }
+                );
+
+                $methodNames = $reflectionService
+                    ->getMethodsAnnotatedWith($className, JsonApi\ExposeCollection::class);
+                array_walk(
+                    $methodNames,
+                    function (string $methodName) use ($className, $reflectionService, &$classNameToMethodNamesMap) {
+                        $methodNameLength = strlen($methodName);
+                        if ($methodNameLength > 2 && substr($methodName, 0, 2) === 'is') {
+                            $propertyName = lcfirst(substr($methodName, 2));
+                        } elseif ($methodNameLength > 3 && (($methodNamePrefix = substr($methodName, 0, 3)) === 'get' || $methodNamePrefix === 'has')) {
+                            $propertyName = lcfirst(substr($methodName, 3));
+                        } else {
+                            return;
+                        }
+
+                        $annotation = $reflectionService->getMethodAnnotation($className, $methodName, JsonApi\ExposeCollection::class);
+                        $declaredReturnType = $reflectionService->getMethodDeclaredReturnType($className, $methodName);
+                        $classNameToMethodNamesMap[$className][$propertyName] = sprintf('%s<%s>', $declaredReturnType, $annotation->targetType);
                     }
                 );
             }

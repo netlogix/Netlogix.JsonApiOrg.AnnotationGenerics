@@ -3,13 +3,8 @@ declare(strict_types=1);
 
 namespace Netlogix\JsonApiOrg\AnnotationGenerics\Annotations;
 
-/*
- * This file is part of the Netlogix.JsonApiOrg.AnnotationGenerics package.
- *
- * This package is Open Source Software. For the full copyright and license
- * information, please view the LICENSE file which was distributed with this
- * source code.
- */
+use Attribute;
+use Doctrine\Common\Annotations\Annotation\NamedArgumentConstructor;
 
 /**
  * A model class which should be available as api resource needs this
@@ -17,7 +12,9 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Annotations;
  *
  * @Annotation
  * @Target({"METHOD", "PROPERTY"})
+ * @NamedArgumentConstructor
  */
+#[Attribute(Attribute::TARGET_METHOD | Attribute::TARGET_PROPERTY)]
 final class Identity
 {
 }
