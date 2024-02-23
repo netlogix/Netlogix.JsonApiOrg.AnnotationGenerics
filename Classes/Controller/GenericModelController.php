@@ -369,8 +369,9 @@ class GenericModelController extends ApiController
             $argumentTemplate->getName(),
             $modelClassName
         );
+        assert($newArgument instanceof Argument);
 
-        $this->arguments[$argumentName] = $newArgument;
+        $this->arguments[$argumentName] = $this->cloneActionArgument($argumentTemplate, $newArgument);
     }
 
     protected function cloneActionArgument($argumentTemplate, Argument $newArgument)
