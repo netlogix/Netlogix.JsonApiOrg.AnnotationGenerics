@@ -207,7 +207,7 @@ class EndpointDiscoveryController extends ActionController
      */
     protected function getDummyObject(string $className)
     {
-        return unserialize('O:' . strlen($className) . ':"' . $className . '":0:{};');
+        return unserialize('O:' . strlen($className) . ':"' . $className . '":0:{}');
     }
 
     /**
