@@ -20,9 +20,11 @@ use Neos\Flow\Mvc\Controller\Argument;
 use Neos\Flow\Mvc\Exception\InvalidArgumentNameException;
 use Neos\Flow\Mvc\Exception\InvalidArgumentTypeException;
 use Neos\Flow\Mvc\Exception\NoSuchArgumentException;
+use Neos\Flow\Mvc\Exception\RequiredArgumentMissingException;
 use Neos\Flow\ObjectManagement\Exception\UnknownObjectException;
 use Neos\Flow\Property\Exception\FormatNotSupportedException;
 use Neos\Flow\Property\PropertyMappingConfiguration;
+use Neos\Utility\Arrays;
 use Neos\Utility\Exception\PropertyNotAccessibleException;
 use Neos\Utility\ObjectAccess;
 use Neos\Utility\TypeHandling;
@@ -436,4 +438,29 @@ class GenericModelController extends ApiController
 
         return $topLevel;
     }
+
+    protected function mapRequestArgumentsToControllerArguments()
+    {
+        /* @var $argument \Neos\Flow\Mvc\Controller\Argument */
+        foreach ($this->arguments as $argument) {
+            $argumentName = $argument->getName();
+            if ($argument->getMapRequestBody()) {
+                $body = $this->request->getHttpRequest()->getParsedBody();
+                if (is_array($body)) {
+                    $body = Arrays::arrayMergeRecursiveOverrule($body, $this->request->getHttpRequest()->getUploadedFiles());
+                }
+                if ($argumentName === 'resource' && array_keys($body) === ['resource']) {
+                    // Backwards compatibility for old-style resource requests
+                    $body = $body['resource'];
+                }
+
+                $argument->setValue($body);
+            } elseif ($this->request->hasArgument($argumentName)) {
+                $argument->setValue($this->request->getArgument($argumentName));
+            } elseif ($argument->isRequired()) {
+                throw new RequiredArgumentMissingException('Required argument "' . $argumentName  . '" is not set.', 1298012500);
+            }
+        }
+    }
+
 }
