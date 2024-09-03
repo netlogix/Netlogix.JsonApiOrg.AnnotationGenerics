@@ -91,10 +91,13 @@ class ExtraLazyPersistentCollection extends AbstractLazyCollection implements Se
             $cloneData[$getter] = array_filter($cloneData[$getter]);
         }
 
+        $getWhereExpression = match(count($cloneData['getWhereExpression'])) {
+            0 => null,
+            1 => array_shift($cloneData['getWhereExpression']),
+            default => Criteria::expr()->andX(... $cloneData['getWhereExpression'])
+        };
         return new Criteria(
-            $cloneData['getWhereExpression']
-                ? Criteria::expr()->andX(... $cloneData['getWhereExpression'])
-                : null,
+            $getWhereExpression,
             array_shift($cloneData['getOrderings']),
             array_shift($cloneData['getFirstResult']),
             array_shift($cloneData['getMaxResults'])
