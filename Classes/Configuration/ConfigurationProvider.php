@@ -114,7 +114,12 @@ class ConfigurationProvider
         foreach ($reflection->getPropertyNamesByAnnotation($className, JsonApi\ExposeProperty::class) as $propertyName) {
             $annotation = $reflection->getPropertyAnnotation($className, $propertyName, JsonApi\ExposeProperty::class);
             assert($annotation instanceof JsonApi\ExposeProperty);
-            $targetType = $reflection->getPropertyTagValues($className, $propertyName, 'var')[0];
+            $propertyTagValues = $reflection->getPropertyTagValues($className, $propertyName, 'var');
+            if (array_key_exists(0, $propertyTagValues)) {
+                $targetType = $propertyTagValues[0];
+            } else {
+                $targetType = $reflection->getPropertyType($className, $propertyName);
+            }
             $settings = $this->applyAnnotationBasedConfigurationForProperty(
                 $propertyName,
                 $annotation->exposeAsAttribute,
