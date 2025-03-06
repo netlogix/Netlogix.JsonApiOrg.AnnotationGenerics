@@ -154,9 +154,13 @@ class ExposableTypeMap extends \Netlogix\JsonApiOrg\Resource\Information\Exposab
                 array_walk(
                     $propertyNames,
                     function (string $propertyName) use ($className, $reflectionService, &$classNameToPropertyNamesMap) {
-                        $classNameToPropertyNamesMap[$className][$propertyName] = $reflectionService
-                            ->getPropertyTagValues($className, $propertyName, 'var')[0]
-                            ?: '';
+                        $propertyTagValues = $reflectionService->getPropertyTagValues($className, $propertyName, 'var');
+                        if (array_key_exists(0, $propertyTagValues)) {
+                            $typeName = $propertyTagValues[0] ?: '';
+                        } else {
+                            $typeName = $reflectionService->getPropertyType($className, $propertyName);
+                        }
+                        $classNameToPropertyNamesMap[$className][$propertyName] = $typeName;
                     }
                 );
 
