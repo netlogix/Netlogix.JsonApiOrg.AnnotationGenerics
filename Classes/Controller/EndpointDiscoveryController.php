@@ -158,7 +158,7 @@ class EndpointDiscoveryController extends ActionController
             $uri = null;
             try {
                 $resource = $this->getDummyObject($className);
-                if ($this->configurationProvider->getSettingsForType($resource)['private']) {
+                if ($this->configurationProvider->getSettingsForType($resource)->private) {
                     continue;
                 }
                 $type = $this->resourceMapper->getDataIdentifierForPayload($resource)['type'];
@@ -223,7 +223,7 @@ class EndpointDiscoveryController extends ActionController
         $resourceInformation = $this->resourceMapper->findResourceInformation($resource);
 
         $controllerArguments = $resourceInformation->getResourceControllerArguments($resource);
-        unset($controllerArguments[$settings['argumentName']]);
+        unset($controllerArguments[$settings->argumentName]);
 
         $uriBuilder = $this->getControllerContext()->getUriBuilder();
         $uriBuilder
@@ -232,11 +232,11 @@ class EndpointDiscoveryController extends ActionController
             ->setCreateAbsoluteUri(true);
 
         return $uriBuilder->uriFor(
-            $settings['actionName'],
+            $settings->actionName,
             $controllerArguments,
-            $settings['controllerName'],
-            $settings['packageKey'],
-            $settings['subPackageKey']
+            $settings->controllerName,
+            $settings->packageKey,
+            $settings->subPackageKey
         );
     }
 

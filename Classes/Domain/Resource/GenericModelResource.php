@@ -63,11 +63,11 @@ class GenericModelResource extends AbstractResource
     public function initializeObject()
     {
         $settings = $this->configurationProvider->getSettingsForType($this->getPayload());
-        $this->attributesToBeApiExposed = $settings['attributesToBeApiExposed'];
+        $this->attributesToBeApiExposed = $settings->attributesToBeApiExposed;
         ksort($this->attributesToBeApiExposed);
-        $this->relationshipsToBeApiExposed = $settings['relationshipsToBeApiExposed'];
+        $this->relationshipsToBeApiExposed = $settings->relationshipsToBeApiExposed;
         ksort($this->relationshipsToBeApiExposed);
-        $this->identityAttributes = $settings['identityAttributes'];
+        $this->identityAttributes = $settings->identityAttributes;
         if ($this->payload instanceof ExposedValueObjectInterface) {
             $this->exposedValueObjectCache->set($this->getId(), $this->payload);
         }

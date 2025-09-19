@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Resource;
@@ -80,9 +81,12 @@ class GenericModelResourceInformation extends ResourceInformation implements Res
             return $resultCache->offsetGet($resource);
         }
 
-        $settings = $this->configurationProvider->getSettingsForType($resource);
+        $argumentName = $this
+            ->configurationProvider
+            ->getSettingsForType($resource)
+            ->argumentName;
         $result = [
-            $settings['argumentName'] => $resource,
+            $argumentName => $resource,
         ];
         $type = TypeHandling::getTypeForValue($resource);
         $typeString = (string)$this->map->getType($type);
@@ -187,9 +191,9 @@ class GenericModelResourceInformation extends ResourceInformation implements Res
         $uri = $uriBuilder->uriFor(
             $controllerActionName,
             $controllerArguments,
-            $settings['controllerName'],
-            $settings['packageKey'],
-            $settings['subPackageKey']
+            $settings->controllerName,
+            $settings->packageKey,
+            $settings->subPackageKey
         );
 
         return new Uri($uri);
