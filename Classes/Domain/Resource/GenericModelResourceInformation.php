@@ -35,7 +35,9 @@ use Psr\Http\Message\UriInterface;
 /**
  * @Flow\Scope("singleton")
  */
-class GenericModelResourceInformation extends ResourceInformation implements ResourceInformationInterface, LinksAwareResourceInformationInterface, MetaAwareResourceInformationInterface
+class GenericModelResourceInformation extends ResourceInformation implements ResourceInformationInterface,
+                                                                             LinksAwareResourceInformationInterface,
+                                                                             MetaAwareResourceInformationInterface
 {
     /**
      * @var int
@@ -106,7 +108,8 @@ class GenericModelResourceInformation extends ResourceInformation implements Res
     public function getLinksForRelationship($payload, $relationshipName, $relationshipType = null): array
     {
         $result = [];
-        $relationshipType = $relationshipType ?: $this->getResource($payload)->getRelationshipsToBeApiExposed()[$relationshipName];
+        $relationshipType = $relationshipType
+            ?: $this->getResource($payload)->getRelationshipsToBeApiExposed()[$relationshipName];
         if ($relationshipType === Relationships::RELATIONSHIP_TYPE_COLLECTION) {
             try {
                 $result['first'] = $this->getPublicRelatedUri($payload, $relationshipName);
@@ -118,7 +121,6 @@ class GenericModelResourceInformation extends ResourceInformation implements Res
                 $result['first'] = $result['first']->withQuery(http_build_query($arguments));
                 $result['first'] = (string)$result['first'];
             } catch (NoMatchingRouteException $e) {
-
             }
         }
         return $result;
@@ -132,7 +134,8 @@ class GenericModelResourceInformation extends ResourceInformation implements Res
     public function getMetaForRelationship($payload, $relationshipName, $relationshipType = null, $included = false)
     {
         $result = [];
-        $relationshipType = $relationshipType ?: $this->getResource($payload)->getRelationshipsToBeApiExposed()[$relationshipName];
+        $relationshipType = $relationshipType
+            ?: $this->getResource($payload)->getRelationshipsToBeApiExposed()[$relationshipName];
         if ($relationshipType === Relationships::RELATIONSHIP_TYPE_COLLECTION) {
             try {
                 $data = ObjectAccess::getProperty($payload, $relationshipName);
@@ -147,7 +150,6 @@ class GenericModelResourceInformation extends ResourceInformation implements Res
                 }
             } catch (\Exception $e) {
             }
-
         }
         return $result;
     }
@@ -175,8 +177,11 @@ class GenericModelResourceInformation extends ResourceInformation implements Res
      * @throws InvalidTypeException
      * @throws MissingActionNameException
      */
-    protected function getPublicUri($resource, $controllerActionName, array $controllerArguments = array()): UriInterface
-    {
+    protected function getPublicUri(
+        $resource,
+        $controllerActionName,
+        array $controllerArguments = array()
+    ): UriInterface {
         $settings = $this->configurationProvider->getSettingsForType($resource);
 
         $uriBuilder = $this->resourceMapper->getControllerContext()->getUriBuilder();
