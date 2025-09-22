@@ -21,55 +21,19 @@ use Neos\Flow\Annotations as Flow;
 final class ExposeType
 {
     public function __construct(
-        /**
-         * Usually types are composed by package key and class name.
-         * Changing this allows the type to be forced to an alternative value.
-         */
         public readonly ?string $typeName = null,
 
-        /**
-         * Each exposed object needs to be available through its resource URI, so having
-         * a controller in place is mandatory.
-         *
-         * This is the package key.
-         */
-        public readonly ?string $packageKey = null,
+        public readonly ?string $requestPackageKey = null,
 
-        /**
-         * Each exposed object needs to be available through its resource URI, so having
-         * a controller in place is mandatory.
-         *
-         * This is the controller name.
-         */
-        public readonly ?string $controllerName = null,
+        public readonly ?string $requestControllerName = null,
 
-        /**
-         * Each exposed object needs to be available through its resource URI, so having
-         * a controller in place is mandatory.
-         *
-         * This is the subpackage key.
-         */
-        public readonly ?string $subPackageKey = null,
+        public readonly ?string $requestSubPackageKey = null,
 
-        /**
-         * Each exposed object needs to be available through its resource URI, so having
-         * a controller in place is mandatory.
-         *
-         * This is the action name.
-         */
-        public readonly ?string $actionName = null,
+        public readonly ?string $requestActionName = null,
 
-        /**
-         * Usually the action argument "$resource" is used. To name the input argument more
-         * domain specific, this allows renaming.
-         */
-        public readonly ?string $argumentName = null,
+        public readonly ?string $requestArgumentName = null,
 
-        /**
-         * Most exposed objects should be visible in endpoint discovery. But sometimes objects
-         * are only available through other objects. This flag hides them in endpoint discovery.
-         */
-        public readonly ?bool $private = null
+        public readonly ?bool $private = null,
     ) {
     }
 
@@ -77,11 +41,11 @@ final class ExposeType
     {
         $result = [
             'typeName' => $this->typeName,
-            'packageKey' => $this->packageKey,
-            'controllerName' => $this->controllerName,
-            'subPackageKey' => $this->subPackageKey,
-            'actionName' => $this->actionName,
-            'argumentName' => $this->argumentName,
+            'requestPackageKey' => $this->requestPackageKey,
+            'requestControllerName' => $this->requestControllerName,
+            'requestSubPackageKey' => $this->requestSubPackageKey,
+            'requestActionName' => $this->requestActionName,
+            'requestArgumentName' => $this->requestArgumentName,
             'private' => $this->private,
         ];
         if ($skipNull) {

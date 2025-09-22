@@ -52,7 +52,7 @@ class ConfigurationProvider
     public function getSettingsForType(mixed $objectOrObjectType): Configuration
     {
         if (!$objectOrObjectType) {
-            return Configuration::create();
+            return Configuration::create('null');
         } elseif (is_object($objectOrObjectType)) {
             $type = TypeHandling::getTypeForValue($objectOrObjectType);
         } else {
@@ -60,24 +60,31 @@ class ConfigurationProvider
         }
 
         if (!array_key_exists($type, $this->runtimeCache)) {
-            $settings = $this->getParentConfig($type);
-            $settings = $this->fetchYamlBasedConfiguration($settings, $type);
-            $settings = $this->applyAnnotationBasedConfiguration($settings, $type);
+            $settings = Configuration::create($type);
+            $settings = $this->mergeWithParentConfiguration($settings, $type);
+            $settings = $this->mergeWithYamlBasedConfiguration($settings, $type);
+            $settings = $this->mergeWithAnnotationBasedConfiguration($settings, $type);
             $this->runtimeCache[$type] = $settings;
         }
         return $this->runtimeCache[$type];
     }
 
-    protected function getParentConfig(string $type): Configuration
+    protected function mergeWithParentConfiguration(Configuration $settings, string $type): Configuration
     {
         $parent = get_parent_class($type);
         if (!$parent) {
-            return Configuration::create();
+            return $settings;
         }
-        return $this->getSettingsForType($parent);
+        $parentSettings = $this->getSettingsForType($parent);
+        foreach ($parentSettings->toArray() as $key => $value) {
+            if ($value !== null && $key !== 'className') {
+                $settings = $settings->with($key, $value);
+            }
+        }
+        return $settings;
     }
 
-    protected function fetchYamlBasedConfiguration(Configuration $settings, string $type): Configuration
+    protected function mergeWithYamlBasedConfiguration(Configuration $settings, string $type): Configuration
     {
         $yamlBased = $this->exposingConfiguration[$type] ?? [];
         foreach ($yamlBased as $key => $value) {
@@ -86,7 +93,7 @@ class ConfigurationProvider
         return $settings;
     }
 
-    protected function applyAnnotationBasedConfiguration(Configuration $settings, string $type): Configuration
+    protected function mergeWithAnnotationBasedConfiguration(Configuration $settings, string $type): Configuration
     {
         $flatType = trim(strrchr($type, '\\'), '\\');
         // unproxied className
@@ -187,7 +194,7 @@ class ConfigurationProvider
             ) {
                 $settings = $settings->with($setting, $annotation->{$setting});
             }
-            if (!$settings->controllerName) {
+            if (!$settings->requestControllerName) {
                 $settings = $settings->with('controllerName', $flatType);
             }
             if (!$settings->argumentName) {

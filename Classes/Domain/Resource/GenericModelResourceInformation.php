@@ -12,6 +12,7 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Resource;
  * source code.
  */
 
+use Athleta\Personen\Domain\Model\Person;
 use Doctrine\Common\Collections\AbstractLazyCollection;
 use GuzzleHttp\Psr7\Uri;
 use Neos\Flow\Annotations as Flow;
@@ -31,6 +32,8 @@ use Netlogix\JsonApiOrg\Resource\Information\ResourceInformation;
 use Netlogix\JsonApiOrg\Resource\Information\ResourceInformationInterface;
 use Netlogix\JsonApiOrg\Schema\Relationships;
 use Psr\Http\Message\UriInterface;
+
+use function array_filter;
 
 /**
  * @Flow\Scope("singleton")
@@ -83,18 +86,15 @@ class GenericModelResourceInformation extends ResourceInformation implements Res
             return $resultCache->offsetGet($resource);
         }
 
-        $argumentName = $this
+        $settings = $this
             ->configurationProvider
-            ->getSettingsForType($resource)
-            ->argumentName;
+            ->getSettingsForType($resource);
+        $argumentName = $settings->argumentName;
         $result = [
             $argumentName => $resource,
+            ... $settings->getRequestArgumentPointer(),
         ];
-        $type = TypeHandling::getTypeForValue($resource);
-        $typeString = (string)$this->map->getType($type);
-        if (preg_match('%^(?<subPackage>[^/]+)/(?<resourceType>.+)$%', (string)$typeString)) {
-            list($result['subPackage'], $result['resourceType']) = explode('/', $typeString, 2);
-        }
+        $result = array_filter($result, fn($value) => $value !== null);
 
         $resultCache->offsetSet($resource, $result);
         return $result;
@@ -196,9 +196,9 @@ class GenericModelResourceInformation extends ResourceInformation implements Res
         $uri = $uriBuilder->uriFor(
             $controllerActionName,
             $controllerArguments,
-            $settings->controllerName,
-            $settings->packageKey,
-            $settings->subPackageKey
+            $settings->requestControllerName,
+            $settings->requestPackageKey,
+            $settings->requestSubPackageKey
         );
 
         return new Uri($uri);

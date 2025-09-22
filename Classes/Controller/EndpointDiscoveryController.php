@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Netlogix\JsonApiOrg\AnnotationGenerics\Controller;
@@ -151,17 +152,16 @@ class EndpointDiscoveryController extends ActionController
         $packageKeys = $this->packageKeysTemplate;
 
         foreach ($this->reflectionService->getClassNamesByAnnotation(JsonApi\ExposeType::class) as $className) {
-            $packageKey = str_replace('\\', '.', current(preg_split('%\\\\(Domain|Model)\\\\%i', $className)));
-            $packageKeys[$packageKey] = $packageKey;
 
             $type = null;
             $uri = null;
             try {
                 $resource = $this->getDummyObject($className);
-                if ($this->configurationProvider->getSettingsForType($resource)->private) {
+                $configuration = $this->configurationProvider->getSettingsForType($resource);
+                if ($configuration->private) {
                     continue;
                 }
-                $type = $this->resourceMapper->getDataIdentifierForPayload($resource)['type'];
+                $type = $configuration->typeName;
                 $uri = $this->buildUriForDummyResource($resource);
             } catch (FormatNotSupportedException $e) {
             } catch (NoMatchingRouteException $e) {
@@ -177,19 +177,18 @@ class EndpointDiscoveryController extends ActionController
                 'meta' => [
                     'type' => 'resourceUri',
                     'resourceType' => $type,
-                    'packageKey' => $packageKey,
+                    'packageKey' => $configuration->getModelPackageKey(),
                 ],
             ];
+            $packageKeys[$configuration->getModelPackageKey()] = $configuration->getModelPackageKey();
         }
 
         $result['links'] = array_merge($result['links'], $this->additionalLinks);
 
         foreach ($packageKeys as $packageKey) {
             try {
-                $result['meta']['api-version'][$packageKey] = $this->packageManager->getPackage($packageKey)->getInstalledVersion();
-                if ($result['meta']['api-version'][$packageKey] === null) {
-                    $result['meta']['api-version'][$packageKey] = 'local';
-                }
+                $installedVersion = $this->packageManager->getPackage($packageKey)->getInstalledVersion() ?? 'local';
+                $result['meta']['api-version'][$packageKey] = $installedVersion;
             } catch (\Exception $e) {
             }
         }
@@ -232,11 +231,11 @@ class EndpointDiscoveryController extends ActionController
             ->setCreateAbsoluteUri(true);
 
         return $uriBuilder->uriFor(
-            $settings->actionName,
+            $settings->requestActionName,
             $controllerArguments,
-            $settings->controllerName,
-            $settings->packageKey,
-            $settings->subPackageKey
+            $settings->requestControllerName,
+            $settings->requestPackageKey,
+            $settings->requestSubPackageKey
         );
     }
 
