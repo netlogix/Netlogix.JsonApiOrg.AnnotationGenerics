@@ -34,6 +34,14 @@ final class ExposeType
         public readonly ?string $requestArgumentName = null,
 
         public readonly ?bool $private = null,
+
+        public readonly ?string $apiVersion = null,
+
+        /**
+         * Allow for similar type names and api versions, as long as the
+         * one to be used publicly is known.
+         */
+        public readonly ?string $replaces = null,
     ) {
     }
 
@@ -47,6 +55,7 @@ final class ExposeType
             'requestActionName' => $this->requestActionName,
             'requestArgumentName' => $this->requestArgumentName,
             'private' => $this->private,
+            'apiVersion' => $this->apiVersion,
         ];
         if ($skipNull) {
             $result = array_filter($result, fn($v) => $v !== null);

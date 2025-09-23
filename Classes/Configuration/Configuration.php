@@ -30,6 +30,7 @@ final class Configuration
         public readonly array $identityAttributes,
         public readonly array $attributesToBeApiExposed,
         public readonly array $relationshipsToBeApiExposed,
+        public readonly ?string $apiVersion,
     ) {
         /**
          * TODO: Validate:
@@ -53,6 +54,7 @@ final class Configuration
             identityAttributes: [],
             attributesToBeApiExposed: [],
             relationshipsToBeApiExposed: [],
+            apiVersion: null,
         );
     }
 
@@ -96,14 +98,19 @@ final class Configuration
             'identityAttributes' => $this->identityAttributes,
             'attributesToBeApiExposed' => $this->attributesToBeApiExposed,
             'relationshipsToBeApiExposed' => $this->relationshipsToBeApiExposed,
+            'apiVersion' => $this->apiVersion,
         ];
     }
 
     public function getRequestArgumentPointer(): array
     {
+        $arguments = [];
         if (preg_match(self::TYPE_NAME_PATTERN, (string)$this->typeName, $matches)) {
-            return array_intersect_key($matches, ['subPackage' => true, 'resourceType' => true]);
+            $arguments = array_intersect_key($matches, ['subPackage' => true, 'resourceType' => true]);
         }
-        return [];
+        if ($this->apiVersion) {
+            $arguments['apiVersion'] = $this->apiVersion;
+        }
+        return $arguments;
     }
 }

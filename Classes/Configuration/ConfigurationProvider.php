@@ -179,7 +179,7 @@ class ConfigurationProvider
             $annotation = $reflection->getMethodAnnotation($className, $methodName, JsonApi\Identity::class);
             if ($annotation !== null) {
                 assert($annotation instanceof JsonApi\Identity);
-                $settings->with('identityAttributes', [
+                $settings = $settings->with('identityAttributes', [
                     ... $settings->identityAttributes,
                     $propertyName => $propertyName
                 ]);

@@ -30,6 +30,9 @@ use Netlogix\JsonApiOrg\AnnotationGenerics\Configuration\ConfigurationProvider;
 use Netlogix\JsonApiOrg\Resource\Information\ResourceMapper;
 use Netlogix\JsonApiOrg\View\JsonView;
 
+use function array_filter;
+use function ksort;
+
 /**
  * @Flow\Scope("singleton")
  */
@@ -162,6 +165,8 @@ class EndpointDiscoveryController extends ActionController
                     continue;
                 }
                 $type = $configuration->typeName;
+                $apiVersion = $configuration->apiVersion;
+                $versionedType = $type . PHP_EOL . ($apiVersion ?? '');
                 $uri = $this->buildUriForDummyResource($resource);
             } catch (FormatNotSupportedException $e) {
             } catch (NoMatchingRouteException $e) {
@@ -172,18 +177,23 @@ class EndpointDiscoveryController extends ActionController
                 continue;
             }
 
-            $result['links'][$type] = [
+            $result['links'][$versionedType] = [
                 'href' => $uri,
-                'meta' => [
-                    'type' => 'resourceUri',
-                    'resourceType' => $type,
-                    'packageKey' => $configuration->getModelPackageKey(),
-                ],
+                'meta' => array_filter(
+                    [
+                        'type' => 'resourceUri',
+                        'resourceType' => $type,
+                        'apiVersion' => $apiVersion,
+                        'packageKey' => $configuration->getModelPackageKey()
+                    ],
+                    fn($field) => $field !== null,
+                )
             ];
             $packageKeys[$configuration->getModelPackageKey()] = $configuration->getModelPackageKey();
         }
 
         $result['links'] = array_merge($result['links'], $this->additionalLinks);
+        ksort($result['links']);
 
         foreach ($packageKeys as $packageKey) {
             try {

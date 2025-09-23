@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Netlogix\JsonApiOrg\AnnotationGenerics\Resource\Information;
@@ -18,13 +19,17 @@ use Neos\Flow\Package\PackageManager;
 use Neos\Flow\Reflection\ReflectionService;
 use Neos\Utility\TypeHandling;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Annotations as JsonApi;
+use Netlogix\JsonApiOrg\Resource\Information\ExposableType;
+use Netlogix\JsonApiOrg\Resource\Information\ExposableTypeMap as BaseExposableTypeMap;
 use Netlogix\JsonApiOrg\Resource\Information\ExposableTypeMapInterface;
 use Psr\Log\LoggerInterface;
+
+use function array_values;
 
 /**
  * @Flow\Scope("singleton")
  */
-class ExposableTypeMap extends \Netlogix\JsonApiOrg\Resource\Information\ExposableTypeMap implements ExposableTypeMapInterface
+class ExposableTypeMap extends BaseExposableTypeMap implements ExposableTypeMapInterface
 {
 
     const PATTERN = '%^(?<vendor>[^\\\\]+)\\\\(?<package>[^\\\\]+)\\\\(?<subpackage>.+)?\\\\domain\\\\(?<type>model|command)\\\\(?<flat>.*)$%i';
@@ -47,20 +52,23 @@ class ExposableTypeMap extends \Netlogix\JsonApiOrg\Resource\Information\Exposab
     public function initializeObject()
     {
         list(
-            $oneToOneTypeToClassMap,
-            $classNameToPropertyNamesMap,
-            $classNamesToMethodNamesMap
-        ) = static::collectKnownTypes($this->objectManager);
+            'exposableTypes' => $exposableTypes,
+            'classNameToPropertyNamesMap' => $classNameToPropertyNamesMap,
+            'classNameToMethodNamesMap' => $classNameToMethodNamesMap,
+            ) = static::collectKnownTypes($this->objectManager);
 
-        $this->oneToOneTypeToClassMap = array_merge($this->oneToOneTypeToClassMap, $oneToOneTypeToClassMap);
+        foreach ($exposableTypes as $exposableType) {
+            $this->registerExposableType($exposableType);
+        }
 
         foreach ($classNameToPropertyNamesMap as $className => $properties) {
-            foreach ($properties as $propertyName => $propertyVarType)
+            $exposableType = $this->getExposableTypeByClassIdentifier($className);
+            foreach ($properties as $propertyName => $propertyVarType) {
                 try {
                     $this->registerKnownPropertyType(
-                        $oneToOneTypeToClassMap[$className],
-                        $propertyName,
-                        $propertyVarType
+                        exposableType: $exposableType,
+                        propertyName: $propertyName,
+                        varType: $propertyVarType
                     );
                 } catch (\Exception $e) {
                     $this->psrSystemLoggerInterface->error('Could not register known property type for type', [
@@ -69,15 +77,17 @@ class ExposableTypeMap extends \Netlogix\JsonApiOrg\Resource\Information\Exposab
                         'propertyVarType' => $propertyVarType,
                     ]);
                 }
+            }
         }
 
-        foreach ($classNamesToMethodNamesMap as $className => $methods) {
+        foreach ($classNameToMethodNamesMap as $className => $methods) {
+            $exposableType = $this->getExposableTypeByClassIdentifier($className);
             foreach ($methods as $methodName => $methodVarType) {
                 try {
                     $this->registerKnownPropertyType(
-                        $oneToOneTypeToClassMap[$className],
-                        $methodName,
-                        $methodVarType
+                        exposableType: $exposableType,
+                        propertyName: $methodName,
+                        varType: $methodVarType
                     );
                 } catch (\Exception $e) {
                     $this->psrSystemLoggerInterface->error('Could not register known property type for type', [
@@ -88,26 +98,18 @@ class ExposableTypeMap extends \Netlogix\JsonApiOrg\Resource\Information\Exposab
                 }
             }
         }
-
-        parent::initializeObject();
     }
 
-    protected function registerKnownPropertyType(string $typeName, string $propertyName, string $varType)
+    protected function registerKnownPropertyType(ExposableType $exposableType, string $propertyName, string $varType)
     {
-        if (!$typeName || !$propertyName || !$varType) {
-            return;
-        }
-
-        $typeNameAndType = strtolower($typeName . '->' . $propertyName);
-
         $varType = TypeHandling::parseType($varType);
         $isCollection = (bool)$varType['elementType'];
         $elementType = $isCollection ? $varType['elementType'] : $varType['type'];
 
         if ($isCollection) {
-            $this->typeAndPropertyNameToClassIdentifierMap[$typeNameAndType] = 'array<' . $elementType . '>';
+            $this->registerExposableTypeProperty($exposableType, $propertyName, 'array<' . $elementType . '>');
         } else {
-            $this->typeAndPropertyNameToClassIdentifierMap[$typeNameAndType] = $elementType;
+            $this->registerExposableTypeProperty($exposableType, $propertyName, $elementType);
         }
     }
 
@@ -117,11 +119,11 @@ class ExposableTypeMap extends \Netlogix\JsonApiOrg\Resource\Information\Exposab
      *
      * @Flow\CompileStatic
      * @param ObjectManagerInterface $objectManager
-     * @return array
+     * @return ExposableType[]
      */
     protected static function collectKnownTypes(ObjectManagerInterface $objectManager): array
     {
-        $oneToOneTypeToClassMap = [];
+        $exposableTypes = [];
         $classNameToPropertyNamesMap = [];
         $classNameToMethodNamesMap = [];
 
@@ -134,81 +136,141 @@ class ExposableTypeMap extends \Netlogix\JsonApiOrg\Resource\Information\Exposab
 
             foreach ($annotations as $annotation) {
                 assert($annotation instanceof JsonApi\ExposeType);
-                $type = $annotation->typeName;
+                $typeName = $annotation->typeName;
+                $apiVersion = $annotation->apiVersion ?: ExposableTypeMapInterface::NEXT_VERSION;
 
-                if (!$type) {
+                if (!$typeName) {
                     $typeComponents = preg_split('%\\\\Domain\\\\(Model|Command)\\\\%i', $className, 2);
                     $typeComponents[0] = explode('\\', $typeComponents[0]);
-                    while ($typeComponents[0] && !$packageManager->isPackageAvailable(join('.',
-                            $typeComponents[0]))) {
+                    while ($typeComponents[0] && !$packageManager->isPackageAvailable(
+                            join(
+                                '.',
+                                $typeComponents[0]
+                            )
+                        )) {
                         unset($typeComponents[0][count($typeComponents[0]) - 1]);
                     }
-                    $type = strtolower(end($typeComponents[0]) . '/' . str_replace('\\', '.', $typeComponents[1]));
+                    $typeName = strtolower(end($typeComponents[0]) . '/' . str_replace('\\', '.', $typeComponents[1]));
                 }
-                $oneToOneTypeToClassMap[$className] = $type;
-                $classNameToPropertyNamesMap[$className] = [];
-                $classNameToMethodNamesMap[$className] = [];
+                $exposableType = new ExposableType(
+                    className: $className,
+                    typeName: $typeName,
+                    apiVersion: $apiVersion,
+                    replaces: $annotation->replaces
+                );
+                unset($typeName);
+                unset($apiVersion);
+
+                $exposableTypes[$exposableType->className] = $exposableType;
+                $classNameToPropertyNamesMap[$exposableType->className] = [];
+                $classNameToMethodNamesMap[$exposableType->className] = [];
 
                 $propertyNames = $reflectionService
-                    ->getPropertyNamesByAnnotation($className, JsonApi\ExposeProperty::class);
+                    ->getPropertyNamesByAnnotation($exposableType->className, JsonApi\ExposeProperty::class);
                 array_walk(
                     $propertyNames,
-                    function (string $propertyName) use ($className, $reflectionService, &$classNameToPropertyNamesMap) {
-                        $propertyTagValues = $reflectionService->getPropertyTagValues($className, $propertyName, 'var');
+                    function (string $propertyName) use (
+                        $exposableType,
+                        $reflectionService,
+                        &
+                        $classNameToPropertyNamesMap
+                    ) {
+                        $propertyTagValues = $reflectionService->getPropertyTagValues(
+                            $exposableType->className,
+                            $propertyName,
+                            'var'
+                        );
                         if (array_key_exists(0, $propertyTagValues)) {
                             $typeName = $propertyTagValues[0] ?: '';
                         } else {
-                            $typeName = $reflectionService->getPropertyType($className, $propertyName);
+                            $typeName = $reflectionService->getPropertyType($exposableType->className, $propertyName);
                         }
-                        $classNameToPropertyNamesMap[$className][$propertyName] = $typeName;
+                        $classNameToPropertyNamesMap[$exposableType->className][$propertyName] = $typeName;
                     }
                 );
 
                 $methodNames = $reflectionService
-                    ->getMethodsAnnotatedWith($className, JsonApi\ExposeProperty::class);
+                    ->getMethodsAnnotatedWith($exposableType->className, JsonApi\ExposeProperty::class);
                 array_walk(
                     $methodNames,
-                    function (string $methodName) use ($className, $reflectionService, &$classNameToMethodNamesMap) {
+                    function (string $methodName) use (
+                        $exposableType,
+                        $reflectionService,
+                        &$classNameToMethodNamesMap
+                    ) {
                         $methodNameLength = strlen($methodName);
                         if ($methodNameLength > 2 && substr($methodName, 0, 2) === 'is') {
                             $propertyName = lcfirst(substr($methodName, 2));
-                        } elseif ($methodNameLength > 3 && (($methodNamePrefix = substr($methodName, 0, 3)) === 'get' || $methodNamePrefix === 'has')) {
+                        } elseif ($methodNameLength > 3 && (($methodNamePrefix = substr(
+                                    $methodName,
+                                    0,
+                                    3
+                                )) === 'get' || $methodNamePrefix === 'has')) {
                             $propertyName = lcfirst(substr($methodName, 3));
                         } else {
                             return;
                         }
 
-                        $declaredReturnType = $reflectionService->getMethodDeclaredReturnType($className, $methodName);
+                        $declaredReturnType = $reflectionService->getMethodDeclaredReturnType(
+                            $exposableType->className,
+                            $methodName
+                        );
                         if (is_subclass_of($declaredReturnType, Collection::class) || $declaredReturnType === null) {
-                            $declaredReturnType = $reflectionService->getMethodTagsValues($className, $methodName)['return'][0] ?: '';
+                            $declaredReturnType = $reflectionService->getMethodTagsValues(
+                                $exposableType->className,
+                                $methodName
+                            )['return'][0] ?: '';
                         }
-                        $classNameToMethodNamesMap[$className][$propertyName] = $declaredReturnType;
+                        $classNameToMethodNamesMap[$exposableType->className][$propertyName] = $declaredReturnType;
                     }
                 );
 
                 $methodNames = $reflectionService
-                    ->getMethodsAnnotatedWith($className, JsonApi\ExposeCollection::class);
+                    ->getMethodsAnnotatedWith($exposableType->className, JsonApi\ExposeCollection::class);
                 array_walk(
                     $methodNames,
-                    function (string $methodName) use ($className, $reflectionService, &$classNameToMethodNamesMap) {
+                    function (string $methodName) use (
+                        $exposableType,
+                        $reflectionService,
+                        &$classNameToMethodNamesMap
+                    ) {
                         $methodNameLength = strlen($methodName);
                         if ($methodNameLength > 2 && substr($methodName, 0, 2) === 'is') {
                             $propertyName = lcfirst(substr($methodName, 2));
-                        } elseif ($methodNameLength > 3 && (($methodNamePrefix = substr($methodName, 0, 3)) === 'get' || $methodNamePrefix === 'has')) {
+                        } elseif ($methodNameLength > 3 && (($methodNamePrefix = substr(
+                                    $methodName,
+                                    0,
+                                    3
+                                )) === 'get' || $methodNamePrefix === 'has')) {
                             $propertyName = lcfirst(substr($methodName, 3));
                         } else {
                             return;
                         }
 
-                        $annotation = $reflectionService->getMethodAnnotation($className, $methodName, JsonApi\ExposeCollection::class);
-                        $declaredReturnType = $reflectionService->getMethodDeclaredReturnType($className, $methodName);
-                        $classNameToMethodNamesMap[$className][$propertyName] = sprintf('%s<%s>', $declaredReturnType, $annotation->targetType);
+                        $annotation = $reflectionService->getMethodAnnotation(
+                            $exposableType->className,
+                            $methodName,
+                            JsonApi\ExposeCollection::class
+                        );
+                        $declaredReturnType = $reflectionService->getMethodDeclaredReturnType(
+                            $exposableType->className,
+                            $methodName
+                        );
+                        $classNameToMethodNamesMap[$exposableType->className][$propertyName] = sprintf(
+                            '%s<%s>',
+                            $declaredReturnType,
+                            $annotation->targetType
+                        );
                     }
                 );
             }
         }
 
-        return [$oneToOneTypeToClassMap, $classNameToPropertyNamesMap, $classNameToMethodNamesMap];
+        return [
+            'exposableTypes' => array_values($exposableTypes),
+            'classNameToPropertyNamesMap' => $classNameToPropertyNamesMap,
+            'classNameToMethodNamesMap' => $classNameToMethodNamesMap
+        ];
     }
 
 }
