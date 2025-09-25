@@ -21,6 +21,8 @@ use Netlogix\JsonApiOrg\AnnotationGenerics\Annotations as JsonApi;
 use Netlogix\JsonApiOrg\Resource\Information\ResourceMapper;
 use Netlogix\JsonApiOrg\Schema\Relationships;
 
+use function str_ends_with;
+
 /**
  * @Flow\Scope("singleton")
  */
@@ -71,10 +73,14 @@ class ConfigurationProvider
 
     protected function mergeWithParentConfiguration(Configuration $settings, string $type): Configuration
     {
-        $parent = get_parent_class($type);
+        $parent = (string)get_parent_class($type);
+        if (str_ends_with($parent, Compiler::ORIGINAL_CLASSNAME_SUFFIX)) {
+            $parent = (string)get_parent_class($parent);
+        }
         if (!$parent) {
             return $settings;
         }
+
         $parentSettings = $this->getSettingsForType($parent);
         foreach ($parentSettings->toArray() as $key => $value) {
             if ($value !== null && $key !== 'className') {
@@ -123,7 +129,7 @@ class ConfigurationProvider
         foreach ($propertyNames as $propertyName) {
             $settings = $settings->with('identityAttributes', [
                 ... $settings->identityAttributes,
-                $propertyName => $propertyName
+                $propertyName => $propertyName,
             ]);
         }
 
@@ -181,7 +187,7 @@ class ConfigurationProvider
                 assert($annotation instanceof JsonApi\Identity);
                 $settings = $settings->with('identityAttributes', [
                     ... $settings->identityAttributes,
-                    $propertyName => $propertyName
+                    $propertyName => $propertyName,
                 ]);
             }
         }
@@ -214,7 +220,7 @@ class ConfigurationProvider
         [
             'isSimpleType' => $isSimpleType,
             'isCollection' => $isCollection,
-            'elementType' => $elementType
+            'elementType' => $elementType,
         ] = self::typeHandling($type);
 
         if ($exposeAsAttribute
@@ -223,17 +229,17 @@ class ConfigurationProvider
         ) {
             $settings = $settings->with('attributesToBeApiExposed', [
                 ... $settings->attributesToBeApiExposed,
-                $propertyName => $propertyName
+                $propertyName => $propertyName,
             ]);
         } elseif ($isCollection) {
             $settings = $settings->with('relationshipsToBeApiExposed', [
                 ... $settings->relationshipsToBeApiExposed,
-                $propertyName => Relationships::RELATIONSHIP_TYPE_COLLECTION
+                $propertyName => Relationships::RELATIONSHIP_TYPE_COLLECTION,
             ]);
         } else {
             $settings = $settings->with('relationshipsToBeApiExposed', [
                 ... $settings->relationshipsToBeApiExposed,
-                $propertyName => Relationships::RELATIONSHIP_TYPE_SINGLE
+                $propertyName => Relationships::RELATIONSHIP_TYPE_SINGLE,
             ]);
         }
 

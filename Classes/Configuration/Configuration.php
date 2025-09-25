@@ -14,10 +14,6 @@ use function preg_split;
 #[Flow\Proxy(false)]
 final class Configuration
 {
-    private const TYPE_NAME_PATTERN = '%^(?<subPackage>[^/]+)/(?<resourceType>.+)$%';
-
-    public readonly string $foo;
-
     private function __construct(
         public readonly string $className,
         public readonly string $typeName,
@@ -100,17 +96,5 @@ final class Configuration
             'relationshipsToBeApiExposed' => $this->relationshipsToBeApiExposed,
             'apiVersion' => $this->apiVersion,
         ];
-    }
-
-    public function getRequestArgumentPointer(): array
-    {
-        $arguments = [];
-        if (preg_match(self::TYPE_NAME_PATTERN, (string)$this->typeName, $matches)) {
-            $arguments = array_intersect_key($matches, ['subPackage' => true, 'resourceType' => true]);
-        }
-        if ($this->apiVersion) {
-            $arguments['apiVersion'] = $this->apiVersion;
-        }
-        return $arguments;
     }
 }

@@ -19,6 +19,7 @@ use Neos\Flow\Package\PackageManager;
 use Neos\Flow\Reflection\ReflectionService;
 use Neos\Utility\TypeHandling;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Annotations as JsonApi;
+use Netlogix\JsonApiOrg\AnnotationGenerics\Configuration\ConfigurationProvider;
 use Netlogix\JsonApiOrg\Resource\Information\ExposableType;
 use Netlogix\JsonApiOrg\Resource\Information\ExposableTypeMap as BaseExposableTypeMap;
 use Netlogix\JsonApiOrg\Resource\Information\ExposableTypeMapInterface;
@@ -113,6 +114,21 @@ class ExposableTypeMap extends BaseExposableTypeMap implements ExposableTypeMapI
         }
     }
 
+    protected static function guessTypeNameFromClassName(PackageManager $packageManager, string $className): string
+    {
+        $typeComponents = preg_split('%\\\\Domain\\\\(Model|Command)\\\\%i', $className, 2);
+        $typeComponents[0] = explode('\\', $typeComponents[0]);
+        while ($typeComponents[0] && !$packageManager->isPackageAvailable(
+                join(
+                    '.',
+                    $typeComponents[0]
+                )
+            )) {
+            unset($typeComponents[0][count($typeComponents[0]) - 1]);
+        }
+        return strtolower(end($typeComponents[0]) . '/' . str_replace('\\', '.', $typeComponents[1]));
+    }
+
     /**
      * This method is compiled statically, as the ReflectionService should not be used in Production context.
      * The cached variant of the ReflectionService is missing at least the "methods annotated with".
@@ -129,37 +145,22 @@ class ExposableTypeMap extends BaseExposableTypeMap implements ExposableTypeMapI
 
         $reflectionService = $objectManager->get(ReflectionService::class);
         $packageManager = $objectManager->get(PackageManager::class);
+        $configurationProvider = $objectManager->get(ConfigurationProvider::class);
 
         $exposedTypes = $reflectionService->getClassNamesByAnnotation(JsonApi\ExposeType::class);
         foreach ($exposedTypes as $className) {
+            $configuration = $configurationProvider->getSettingsForType($className);
             $annotations = $reflectionService->getClassAnnotations($className, JsonApi\ExposeType::class);
 
             foreach ($annotations as $annotation) {
                 assert($annotation instanceof JsonApi\ExposeType);
-                $typeName = $annotation->typeName;
-                $apiVersion = $annotation->apiVersion ?: ExposableTypeMapInterface::NEXT_VERSION;
 
-                if (!$typeName) {
-                    $typeComponents = preg_split('%\\\\Domain\\\\(Model|Command)\\\\%i', $className, 2);
-                    $typeComponents[0] = explode('\\', $typeComponents[0]);
-                    while ($typeComponents[0] && !$packageManager->isPackageAvailable(
-                            join(
-                                '.',
-                                $typeComponents[0]
-                            )
-                        )) {
-                        unset($typeComponents[0][count($typeComponents[0]) - 1]);
-                    }
-                    $typeName = strtolower(end($typeComponents[0]) . '/' . str_replace('\\', '.', $typeComponents[1]));
-                }
                 $exposableType = new ExposableType(
-                    className: $className,
-                    typeName: $typeName,
-                    apiVersion: $apiVersion,
+                    className: $configuration->className,
+                    typeName: $annotation->typeName ?: self::guessTypeNameFromClassName($packageManager, $className),
+                    apiVersion: $annotation->apiVersion ?: ExposableTypeMapInterface::NEXT_VERSION,
                     replaces: $annotation->replaces
                 );
-                unset($typeName);
-                unset($apiVersion);
 
                 $exposableTypes[$exposableType->className] = $exposableType;
                 $classNameToPropertyNamesMap[$exposableType->className] = [];
@@ -269,7 +270,7 @@ class ExposableTypeMap extends BaseExposableTypeMap implements ExposableTypeMapI
         return [
             'exposableTypes' => array_values($exposableTypes),
             'classNameToPropertyNamesMap' => $classNameToPropertyNamesMap,
-            'classNameToMethodNamesMap' => $classNameToMethodNamesMap
+            'classNameToMethodNamesMap' => $classNameToMethodNamesMap,
         ];
     }
 
