@@ -4,14 +4,6 @@ declare(strict_types=1);
 
 namespace Netlogix\JsonApiOrg\AnnotationGenerics\Controller;
 
-/*
- * This file is part of the Netlogix.JsonApiOrg.AnnotationGenerics package.
- *
- * This package is Open Source Software. For the full copyright and license
- * information, please view the LICENSE file which was distributed with this
- * source code.
- */
-
 use Neos\Cache\Exception;
 use Neos\Cache\Frontend\VariableFrontend;
 use Neos\Flow\Annotations as Flow;
@@ -19,106 +11,77 @@ use Neos\Flow\Mvc\ActionRequest;
 use Neos\Flow\Mvc\Controller\ActionController;
 use Neos\Flow\Mvc\Exception\NoMatchingRouteException;
 use Neos\Flow\Mvc\Routing\Exception\MissingActionNameException;
-use Neos\Flow\ObjectManagement\ObjectManagerInterface;
 use Neos\Flow\Package\PackageManager;
 use Neos\Flow\Persistence\Exception\UnknownObjectException;
 use Neos\Flow\Property\Exception\FormatNotSupportedException;
-use Neos\Flow\Reflection\ReflectionService;
 use Neos\Utility\Exception\InvalidTypeException;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Annotations as JsonApi;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Configuration\ConfigurationProvider;
+use Netlogix\JsonApiOrg\Resource\Information\ExposableTypeMapInterface;
 use Netlogix\JsonApiOrg\Resource\Information\ResourceMapper;
 use Netlogix\JsonApiOrg\View\JsonView;
 
 use function array_filter;
+use function in_array;
 use function ksort;
+use function md5;
+use function strtolower;
 
-/**
- * @Flow\Scope("singleton")
- */
+#[Flow\Scope("singleton")]
 class EndpointDiscoveryController extends ActionController
 {
-    /**
-     * @var VariableFrontend
-     */
-    protected $resultsCache;
+    #[Flow\Inject(name: 'Netlogix.JsonApiOrg.AnnotationGenerics:EndpointDiscoveryCache', lazy: false)]
+    protected VariableFrontend $resultsCache;
 
-    /**
-     * @var array
-     */
     protected $supportedMediaTypes = [
         'application/vnd.api+json',
         'application/json',
-        'text/html'
+        'text/html',
     ];
 
-    /**
-     * @var array
-     */
     protected $viewFormatToObjectNameMap = [
-        'json' => JsonView::class
+        'json' => JsonView::class,
     ];
 
-    /**
-     * @var array
-     * @Flow\InjectConfiguration(package="Netlogix.JsonApiOrg", path="endpointDiscovery.additionalLinks")
-     */
-    protected $additionalLinks = [];
+    #[Flow\InjectConfiguration(package: 'Netlogix.JsonApiOrg', path: 'endpointDiscovery.additionalLinks')]
+    protected array $additionalLinks = [];
 
-    /**
-     * @var ReflectionService
-     * @Flow\Inject
-     */
-    protected $reflectionService;
+    #[Flow\Inject]
+    protected PackageManager $packageManager;
 
-    /**
-     * @var ObjectManagerInterface
-     * @Flow\Inject
-     */
-    protected $objectManager;
+    #[Flow\Inject]
+    protected ConfigurationProvider $configurationProvider;
 
-    /**
-     * @var PackageManager
-     * @Flow\Inject
-     */
-    protected $packageManager;
+    #[Flow\Inject]
+    protected ExposableTypeMapInterface $exposableTypeMap;
 
-    /**
-     * @var ConfigurationProvider
-     * @Flow\Inject
-     */
-    protected $configurationProvider;
+    #[Flow\Inject]
+    protected ResourceMapper $resourceMapper;
 
-    /**
-     * @var ResourceMapper
-     * @Flow\Inject
-     */
-    protected $resourceMapper;
-
-    /**
-     * @var array
-     */
-    protected $resultTemplate = [
+    protected array $resultTemplate = [
         'meta' => [
             'api-version' => [],
         ],
-        'links' => []
+        'links' => [],
     ];
 
     /**
-     * @var array<string>
+     * @var string[]
      */
-    protected $packageKeysTemplate = ['Netlogix.JsonApiOrg', 'Netlogix.JsonApiOrg.AnnotationGenerics'];
+    protected array $packageKeysTemplate = ['Netlogix.JsonApiOrg', 'Netlogix.JsonApiOrg.AnnotationGenerics'];
 
     /**
      * @param string $packageKey
+     * @param string $apiVersion Use "all" for all versions, "next" for unversioned or a specific version like "v1"
      * @throws Exception
      * @throws InvalidTypeException
      * @throws MissingActionNameException
      */
-    public function indexAction(string $packageKey = '')
-    {
-        $cacheIdentifier = $this->getCacheIdentifier($packageKey);
+    public function indexAction(
+        string $packageKey = '',
+        string $apiVersion = 'all'
+    ): void {
+        $cacheIdentifier = $this->getCacheIdentifier($packageKey, $apiVersion);
         if ($this->resultsCache->has($cacheIdentifier)) {
             $result = $this->resultsCache->get($cacheIdentifier);
         } else {
@@ -129,15 +92,29 @@ class EndpointDiscoveryController extends ActionController
                         unset($result['links'][$key]);
                     }
                 }
-                foreach ($result['meta']['api-version'] as $key => $link) {
-                    if (in_array($key, $this->packageKeysTemplate)) {
-                        continue;
-                    }
-                    if (stripos($key . '.', $packageKey . '.') !== 0) {
-                        unset($result['meta']['api-version'][$key]);
-                    }
-                }
             }
+            if ($apiVersion && $apiVersion !== 'all') {
+                $result['links'] = array_filter(
+                    array: $result['links'],
+                    callback: function (array $link) use ($apiVersion) {
+                        $linkApiVersion = $link['meta']['apiVersion'] ?? ExposableTypeMapInterface::NEXT_VERSION;
+                        return strtolower($linkApiVersion) === strtolower($apiVersion);
+                    }
+                );
+            }
+            $knownPackageKeys = array_map(
+                callback: fn (array $link) => $link['meta']['packageKey'],
+                array: $result['links']
+            );
+            $result['meta']['api-version'] = array_filter(
+                array: $result['meta']['api-version'],
+                callback: fn (string $packageKey) => in_array($packageKey, $knownPackageKeys) || in_array(
+                        $packageKey,
+                        $this->packageKeysTemplate
+                    ),
+                mode: ARRAY_FILTER_USE_KEY
+            );
+
             $this->resultsCache->set($cacheIdentifier, $result);
         }
 
@@ -155,39 +132,40 @@ class EndpointDiscoveryController extends ActionController
         $packageKeys = $this->packageKeysTemplate;
 
         foreach ($this->reflectionService->getClassNamesByAnnotation(JsonApi\ExposeType::class) as $className) {
-
-            $type = null;
+            $resourceType = null;
             $uri = null;
             try {
-                $resource = $this->getDummyObject($className);
-                $configuration = $this->configurationProvider->getSettingsForType($resource);
+                $exposableType = $this->exposableTypeMap->getExposableTypeByClassIdentifier($className);
+                $configuration = $this->configurationProvider->getSettingsForType($className);
                 if ($configuration->private) {
                     continue;
                 }
-                $type = $configuration->typeName;
-                $apiVersion = $configuration->apiVersion;
-                $versionedType = $type . PHP_EOL . ($apiVersion ?? '');
-                $uri = $this->buildUriForDummyResource($resource);
+                $resourceType = $exposableType->typeName;
+                $apiVersion = $exposableType->apiVersion;
+                $versionedType = $exposableType->getVersionType();
+
+                $uri = $this->buildUriForDummyResource(
+                    $this->getDummyObject($className)
+                );
             } catch (FormatNotSupportedException $e) {
             } catch (NoMatchingRouteException $e) {
             } catch (UnknownObjectException $e) {
             }
 
-            if (!$type || !$uri) {
+            if (!$resourceType || !$uri) {
                 continue;
             }
 
             $result['links'][$versionedType] = [
                 'href' => $uri,
-                'meta' => array_filter(
-                    [
-                        'type' => 'resourceUri',
-                        'resourceType' => $type,
-                        'apiVersion' => $apiVersion,
-                        'packageKey' => $configuration->getModelPackageKey()
-                    ],
-                    fn($field) => $field !== null,
-                )
+                'meta' => array_filter([
+                    'resourceType' => $resourceType,
+                    'packageKey' => $configuration->getModelPackageKey(),
+                    'apiVersion' => $apiVersion !== ExposableTypeMapInterface::NEXT_VERSION ? $apiVersion : null,
+                    'versionedResourceType' => $versionedType !== $resourceType ? $versionedType : null,
+                    'type' => 'resourceUri',
+                ],
+                    fn ($field) => $field !== null,),
             ];
             $packageKeys[$configuration->getModelPackageKey()] = $configuration->getModelPackageKey();
         }
@@ -203,8 +181,8 @@ class EndpointDiscoveryController extends ActionController
             }
         }
 
-        usort($result['links'], function ($a, $b) {
-            return $a['meta']['resourceType'] <=> $b['meta']['resourceType'];
+        usort($result['links'], function (array $a, array $b): int {
+            return ($a['meta']['resourceType'] . PHP_EOL . ($a['meta']['apiVersion'] ?? '')) <=> ($b['meta']['resourceType'] . PHP_EOL . ($b['meta']['apiVersion'] ?? ''));
         });
         ksort($result['meta']['api-version']);
         return $result;
@@ -249,7 +227,7 @@ class EndpointDiscoveryController extends ActionController
         );
     }
 
-    protected function getCacheIdentifier(string $packageKey): string
+    protected function getCacheIdentifier(string $packageKey, string $apiVersion): string
     {
         $request = $this->request;
         assert($request instanceof ActionRequest);
@@ -258,6 +236,6 @@ class EndpointDiscoveryController extends ActionController
             ->getUri()
             ->withQuery('')
             ->__toString();
-        return md5($packageKey . $uri);
+        return md5($packageKey . $apiVersion . $uri);
     }
 }
