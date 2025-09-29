@@ -131,8 +131,8 @@ class EndpointDiscoveryController extends ActionController
         $result = $this->resultTemplate;
         $packageKeys = $this->packageKeysTemplate;
 
-        foreach ($this->reflectionService->getClassNamesByAnnotation(JsonApi\ExposeType::class) as $className) {
-            $resourceType = null;
+        $classes = $this->reflectionService->getClassNamesByAnnotation(JsonApi\ExposeType::class);
+        foreach ($classes as $className) {
             $uri = null;
             try {
                 $exposableType = $this->exposableTypeMap->getExposableTypeByClassIdentifier($className);
@@ -140,9 +140,7 @@ class EndpointDiscoveryController extends ActionController
                 if ($configuration->private) {
                     continue;
                 }
-                $resourceType = $exposableType->typeName;
-                $apiVersion = $exposableType->apiVersion;
-                $versionedType = $exposableType->getVersionType();
+                $resourceType = $exposableType->getVersionType();
 
                 $uri = $this->buildUriForDummyResource(
                     $this->getDummyObject($className)
@@ -156,13 +154,13 @@ class EndpointDiscoveryController extends ActionController
                 continue;
             }
 
-            $result['links'][$versionedType] = [
+            $result['links'][$resourceType] = [
                 'href' => $uri,
                 'meta' => array_filter([
                     'resourceType' => $resourceType,
                     'packageKey' => $configuration->getModelPackageKey(),
-                    'apiVersion' => $apiVersion !== ExposableTypeMapInterface::NEXT_VERSION ? $apiVersion : null,
-                    'versionedResourceType' => $versionedType !== $resourceType ? $versionedType : null,
+                    'apiVersion' => $exposableType->apiVersion !== ExposableTypeMapInterface::NEXT_VERSION ? $exposableType->apiVersion : null,
+                    'baseResourceType' => $resourceType !== $exposableType->typeName ? $exposableType->typeName : null,
                     'type' => 'resourceUri',
                 ],
                     fn ($field) => $field !== null,),

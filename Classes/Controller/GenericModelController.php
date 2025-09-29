@@ -35,6 +35,7 @@ use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\GenericModelInterface;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\ReadModelInterface;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\WriteModelInterface;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Repository\GenericModelRepositoryInterface;
+use Netlogix\JsonApiOrg\AnnotationGenerics\Resource\Information\ExposableTypeMap;
 use Netlogix\JsonApiOrg\Controller\ApiController;
 use Netlogix\JsonApiOrg\Resource\Information\ExposableTypeMapInterface;
 use Netlogix\JsonApiOrg\Schema\ResourceInterface;
@@ -465,32 +466,38 @@ class GenericModelController extends ApiController
 
     protected function mapRequestArgumentsToControllerArguments()
     {
-        /* @var $argument \Neos\Flow\Mvc\Controller\Argument */
-        foreach ($this->arguments as $argument) {
-            $argumentName = $argument->getName();
-            if ($argument->getMapRequestBody()) {
-                $body = $this->request->getHttpRequest()->getParsedBody();
-                if (is_array($body)) {
-                    $body = Arrays::arrayMergeRecursiveOverrule(
-                        $body,
-                        $this->request->getHttpRequest()->getUploadedFiles()
+        $apiVersion = $this->request->hasArgument('apiVersion')
+            ? ($this->request->getArgument('apiVersion') ?: null)
+            : null;
+
+        ExposableTypeMap::forceApiVersion($apiVersion, function () {
+            foreach ($this->arguments as $argument) {
+                assert($argument instanceof Argument);
+                $argumentName = $argument->getName();
+                if ($argument->getMapRequestBody()) {
+                    $body = $this->request->getHttpRequest()->getParsedBody();
+                    if (is_array($body)) {
+                        $body = Arrays::arrayMergeRecursiveOverrule(
+                            $body,
+                            $this->request->getHttpRequest()->getUploadedFiles()
+                        );
+                    }
+                    if ($argumentName === 'resource' && array_keys($body) === ['resource']) {
+                        // Backwards compatibility for old-style resource requests
+                        $body = $body['resource'];
+                    }
+
+                    $argument->setValue($body);
+                } elseif ($this->request->hasArgument($argumentName)) {
+                    $argument->setValue($this->request->getArgument($argumentName));
+                } elseif ($argument->isRequired()) {
+                    throw new RequiredArgumentMissingException(
+                        'Required argument "' . $argumentName . '" is not set.',
+                        1298012500
                     );
                 }
-                if ($argumentName === 'resource' && array_keys($body) === ['resource']) {
-                    // Backwards compatibility for old-style resource requests
-                    $body = $body['resource'];
-                }
-
-                $argument->setValue($body);
-            } elseif ($this->request->hasArgument($argumentName)) {
-                $argument->setValue($this->request->getArgument($argumentName));
-            } elseif ($argument->isRequired()) {
-                throw new RequiredArgumentMissingException(
-                    'Required argument "' . $argumentName . '" is not set.',
-                    1298012500
-                );
             }
-        }
+        });
     }
 
 }
