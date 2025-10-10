@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Netlogix\JsonApiOrg\AnnotationGenerics\Configuration;
@@ -15,11 +16,12 @@ use Doctrine\Common\Collections\Collection;
 use Neos\Flow\Annotations as Flow;
 use Neos\Flow\ObjectManagement\Proxy\Compiler;
 use Neos\Flow\Reflection\ReflectionService;
-use Neos\Utility\Exception\InvalidTypeException;
 use Neos\Utility\TypeHandling;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Annotations as JsonApi;
 use Netlogix\JsonApiOrg\Resource\Information\ResourceMapper;
 use Netlogix\JsonApiOrg\Schema\Relationships;
+
+use function str_ends_with;
 
 /**
  * @Flow\Scope("singleton")
@@ -45,34 +47,14 @@ class ConfigurationProvider
     protected $exposingConfiguration = [];
 
     /**
-     * @var array
+     * @var Configuration[]
      */
-    protected $runtimeCache = [];
+    protected array $runtimeCache = [];
 
-    /**
-     * @var array
-     */
-    protected $defaultConfigurationSchema = [
-        'argumentName' => '',
-        'actionName' => '',
-        'controllerName' => '',
-        'packageKey' => '',
-        'subPackageKey' => null,
-        'private' => false,
-        'attributesToBeApiExposed' => [],
-        'relationshipsToBeApiExposed' => [],
-        'identityAttributes' => [],
-    ];
-
-    /**
-     * @param $objectOrObjectType
-     * @return array
-     * @throws InvalidTypeException
-     */
-    public function getSettingsForType($objectOrObjectType): array
+    public function getSettingsForType(mixed $objectOrObjectType): Configuration
     {
         if (!$objectOrObjectType) {
-            return $this->defaultConfigurationSchema;
+            return Configuration::create('null');
         } elseif (is_object($objectOrObjectType)) {
             $type = TypeHandling::getTypeForValue($objectOrObjectType);
         } else {
@@ -80,30 +62,44 @@ class ConfigurationProvider
         }
 
         if (!array_key_exists($type, $this->runtimeCache)) {
-            $settings = $this->fetchYamlBasedConfiguration($type);
-            $settings = $this->applyAnnotationBasedConfiguration($type, $settings);
+            $settings = Configuration::create($type);
+            $settings = $this->mergeWithParentConfiguration($settings, $type);
+            $settings = $this->mergeWithYamlBasedConfiguration($settings, $type);
+            $settings = $this->mergeWithAnnotationBasedConfiguration($settings, $type);
             $this->runtimeCache[$type] = $settings;
         }
         return $this->runtimeCache[$type];
     }
 
-    protected function fetchYamlBasedConfiguration(string $type): array
+    protected function mergeWithParentConfiguration(Configuration $settings, string $type): Configuration
     {
-        $parentConfiguration = $this->getSettingsForType(get_parent_class($type));
-        if (isset($this->exposingConfiguration[$type])) {
-            return array_merge($parentConfiguration, $this->exposingConfiguration[$type]);
-        } else {
-            return $parentConfiguration;
+        $parent = (string)get_parent_class($type);
+        if (str_ends_with($parent, Compiler::ORIGINAL_CLASSNAME_SUFFIX)) {
+            $parent = (string)get_parent_class($parent);
         }
+        if (!$parent) {
+            return $settings;
+        }
+
+        $parentSettings = $this->getSettingsForType($parent);
+        foreach ($parentSettings->toArray() as $key => $value) {
+            if ($value !== null && $key !== 'className') {
+                $settings = $settings->with($key, $value);
+            }
+        }
+        return $settings;
     }
 
-    /**
-     * @param string $type
-     * @param array $settings
-     * @return array
-     * @throws InvalidTypeException
-     */
-    protected function applyAnnotationBasedConfiguration(string $type, array $settings = []): array
+    protected function mergeWithYamlBasedConfiguration(Configuration $settings, string $type): Configuration
+    {
+        $yamlBased = $this->exposingConfiguration[$type] ?? [];
+        foreach ($yamlBased as $key => $value) {
+            $settings = $settings->with($key, $value);
+        }
+        return $settings;
+    }
+
+    protected function mergeWithAnnotationBasedConfiguration(Configuration $settings, string $type): Configuration
     {
         $flatType = trim(strrchr($type, '\\'), '\\');
         // unproxied className
@@ -111,7 +107,8 @@ class ConfigurationProvider
 
         $reflection = $this->reflectionService;
 
-        foreach ($reflection->getPropertyNamesByAnnotation($className, JsonApi\ExposeProperty::class) as $propertyName) {
+        $propertyNames = $reflection->getPropertyNamesByAnnotation($className, JsonApi\ExposeProperty::class);
+        foreach ($propertyNames as $propertyName) {
             $annotation = $reflection->getPropertyAnnotation($className, $propertyName, JsonApi\ExposeProperty::class);
             assert($annotation instanceof JsonApi\ExposeProperty);
             $propertyTagValues = $reflection->getPropertyTagValues($className, $propertyName, 'var');
@@ -121,15 +118,19 @@ class ConfigurationProvider
                 $targetType = $reflection->getPropertyType($className, $propertyName);
             }
             $settings = $this->applyAnnotationBasedConfigurationForProperty(
-                $propertyName,
-                $annotation->exposeAsAttribute,
-                $targetType,
-                $settings
+                settings: $settings,
+                type: $targetType,
+                propertyName: $propertyName,
+                exposeAsAttribute: $annotation->exposeAsAttribute
             );
         }
 
-        foreach ($reflection->getPropertyNamesByAnnotation($className, JsonApi\Identity::class) as $propertyName) {
-            $settings['identityAttributes'][$propertyName] = $propertyName;
+        $propertyNames = $reflection->getPropertyNamesByAnnotation($className, JsonApi\Identity::class);
+        foreach ($propertyNames as $propertyName) {
+            $settings = $settings->with('identityAttributes', [
+                ... $settings->identityAttributes,
+                $propertyName => $propertyName,
+            ]);
         }
 
         foreach (get_class_methods($className) as $methodName) {
@@ -143,99 +144,114 @@ class ConfigurationProvider
             }
             $propertyName = lcfirst(ltrim($methodName, 'getisha'));
 
-            $annotation = $reflection->getMethodAnnotation($className, $methodName, JsonApi\ExposeProperty::class);
-            if ($annotation !== null) {
-                assert($annotation instanceof JsonApi\ExposeProperty);
+            $exposeProperties = $reflection->getMethodAnnotations(
+                $className,
+                $methodName,
+                JsonApi\ExposeProperty::class
+            );
+            foreach ($exposeProperties as $exposeProperty) {
+                assert($exposeProperty instanceof JsonApi\ExposeProperty);
 
                 $targetType = $reflection->getMethodDeclaredReturnType($className, $methodName);
                 if (is_subclass_of($targetType, Collection::class) || $targetType === null) {
                     $targetType = $reflection->getMethodTagsValues($className, $methodName)['return'][0] ?: '';
                 }
                 $settings = $this->applyAnnotationBasedConfigurationForProperty(
-                    $propertyName,
-                    $annotation->exposeAsAttribute,
-                    $targetType,
-                    $settings
+                    settings: $settings,
+                    type: $targetType,
+                    propertyName: $propertyName,
+                    exposeAsAttribute: $exposeProperty->exposeAsAttribute,
                 );
             }
 
-            $annotation = $reflection->getMethodAnnotation($className, $methodName, JsonApi\ExposeCollection::class);
-            if ($annotation !== null) {
-                assert($annotation instanceof JsonApi\ExposeCollection);
+            $exposeCollections = $reflection->getMethodAnnotations(
+                $className,
+                $methodName,
+                JsonApi\ExposeCollection::class
+            );
+            foreach ($exposeCollections as $exposeCollection) {
+                assert($exposeCollection instanceof JsonApi\ExposeCollection);
 
                 $declaredReturnType = $reflection->getMethodDeclaredReturnType($className, $methodName);
-                $targetType = sprintf('%s<%s>', $declaredReturnType, $annotation->targetType);
+                $targetType = sprintf('%s<%s>', $declaredReturnType, $exposeCollection->targetType);
                 $settings = $this->applyAnnotationBasedConfigurationForProperty(
-                    $propertyName,
-                    false,
-                    $targetType,
-                    $settings
+                    settings: $settings,
+                    type: $targetType,
+                    propertyName: $propertyName,
+                    exposeAsAttribute: false
                 );
             }
 
             $annotation = $reflection->getMethodAnnotation($className, $methodName, JsonApi\Identity::class);
             if ($annotation !== null) {
                 assert($annotation instanceof JsonApi\Identity);
-                $settings['identityAttributes'][$propertyName] = $propertyName;
+                $settings = $settings->with('identityAttributes', [
+                    ... $settings->identityAttributes,
+                    $propertyName => $propertyName,
+                ]);
             }
         }
 
-        foreach ($reflection->getClassAnnotations($className, JsonApi\ExposeType::class) as $annotation) {
+        $exposeTypes = $reflection->getClassAnnotations($className, JsonApi\ExposeType::class);
+        foreach ($exposeTypes as $annotation) {
             assert($annotation instanceof JsonApi\ExposeType);
-            foreach ([
-                         'packageKey',
-                         'subPackageKey',
-                         'controllerName',
-                         'actionName',
-                         'argumentName',
-                         'private'
-                     ] as $setting) {
-                if ((!array_key_exists($setting, $settings) || !$settings[$setting]) && $annotation->{$setting}) {
-                    $settings[$setting] = $annotation->{$setting};
-                } elseif (!array_key_exists($setting, $settings)) {
-                    $settings[$setting] = null;
-                }
+            foreach (
+                $annotation->toArray(skipNull: true) as $setting => $value
+            ) {
+                $settings = $settings->with($setting, $annotation->{$setting});
             }
-            if (!$settings['controllerName']) {
-                $settings['controllerName'] = $flatType;
+            if (!$settings->requestControllerName) {
+                $settings = $settings->with('controllerName', $flatType);
             }
-            if (!$settings['argumentName']) {
-                $settings['argumentName'] = lcfirst($flatType);
+            if (!$settings->argumentName) {
+                $settings = $settings->with('argumentName', lcfirst($flatType));
             }
-
         }
 
         return $settings;
     }
 
     protected function applyAnnotationBasedConfigurationForProperty(
+        Configuration $settings,
+        string $type,
         string $propertyName,
         bool $exposeAsAttribute,
-        string $type,
-        array $settings
-    ): array {
+    ): Configuration {
+        [
+            'isSimpleType' => $isSimpleType,
+            'isCollection' => $isCollection,
+            'elementType' => $elementType,
+        ] = self::typeHandling($type);
+
+        if ($exposeAsAttribute
+            || $isSimpleType
+            || (!$isSimpleType && !$this->resourceMapper->findResourceInformation($elementType))
+        ) {
+            $settings = $settings->with('attributesToBeApiExposed', [
+                ... $settings->attributesToBeApiExposed,
+                $propertyName => $propertyName,
+            ]);
+        } elseif ($isCollection) {
+            $settings = $settings->with('relationshipsToBeApiExposed', [
+                ... $settings->relationshipsToBeApiExposed,
+                $propertyName => Relationships::RELATIONSHIP_TYPE_COLLECTION,
+            ]);
+        } else {
+            $settings = $settings->with('relationshipsToBeApiExposed', [
+                ... $settings->relationshipsToBeApiExposed,
+                $propertyName => Relationships::RELATIONSHIP_TYPE_SINGLE,
+            ]);
+        }
+
+        return $settings;
+    }
+
+    protected static function typeHandling(string $type): array
+    {
         $targetType = TypeHandling::parseType($type);
         $isCollection = (bool)$targetType['elementType'];
         $elementType = $isCollection ? $targetType['elementType'] : $targetType['type'];
         $isSimpleType = TypeHandling::isSimpleType($elementType);
-
-        if ($exposeAsAttribute) {
-            $settings['attributesToBeApiExposed'][$propertyName] = $propertyName;
-
-        } elseif ($isSimpleType) {
-            $settings['attributesToBeApiExposed'][$propertyName] = $propertyName;
-
-        } elseif (!$isSimpleType && !$this->resourceMapper->findResourceInformation($elementType)) {
-            $settings['attributesToBeApiExposed'][$propertyName] = $propertyName;
-
-        } elseif ($isCollection) {
-            $settings['relationshipsToBeApiExposed'][$propertyName] = Relationships::RELATIONSHIP_TYPE_COLLECTION;
-
-        } else {
-            $settings['relationshipsToBeApiExposed'][$propertyName] = Relationships::RELATIONSHIP_TYPE_SINGLE;
-
-        }
-
-        return $settings;
+        return ['isSimpleType' => $isSimpleType, 'isCollection' => $isCollection, 'elementType' => $elementType];
     }
 }

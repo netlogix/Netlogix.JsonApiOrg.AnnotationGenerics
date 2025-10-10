@@ -3,14 +3,14 @@
 # Endpoint Discovery should work "as is"
 
 -
-  name: 'Netlogix.JsonApiOrg: .well-known'
-  uriPattern: '.well-known/endpoint-discovery(/{packageKey})'
+  name:        'Netlogix.JsonApiOrg: .well-known'
+  uriPattern:  '.well-known/endpoint-discovery(/{apiVersion})'
   defaults:
     '@package':    'Netlogix.JsonApiOrg.AnnotationGenerics'
     '@controller': 'EndpointDiscovery'
     '@action':     'index'
     '@format':     'json'
-    'packageKey':  'sdf'
+    'apiVersion':  'all'
   toLowerCase: true
   routeParts:
     packageKey:
@@ -26,6 +26,7 @@
     '@action':     'index'
     '@format':     'json'
     'subPackage':  'example'
+    'apiVersion':  'next'
   toLowerCase: false
 
 -
@@ -37,6 +38,7 @@
     '@action':     'index'
     '@format':     'json'
     'subPackage':  'example'
+    'apiVersion':  'next'
   toLowerCase: false
 
 -
@@ -48,6 +50,7 @@
     '@action':     'index'
     '@format':     'json'
     'subPackage':  'example'
+    'apiVersion':  'next'
   toLowerCase: false
 
 -
@@ -59,4 +62,5 @@
     '@action':     'showRelated'
     '@format':     'json'
     'subPackage':  'example'
+    'apiVersion':  'next'
   toLowerCase: false

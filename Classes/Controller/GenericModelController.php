@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Netlogix\JsonApiOrg\AnnotationGenerics\Controller;
@@ -34,6 +35,7 @@ use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\GenericModelInterface;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\ReadModelInterface;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\WriteModelInterface;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Repository\GenericModelRepositoryInterface;
+use Netlogix\JsonApiOrg\AnnotationGenerics\Resource\Information\ExposableTypeMap;
 use Netlogix\JsonApiOrg\Controller\ApiController;
 use Netlogix\JsonApiOrg\Resource\Information\ExposableTypeMapInterface;
 use Netlogix\JsonApiOrg\Schema\ResourceInterface;
@@ -71,10 +73,11 @@ class GenericModelController extends ApiController
         string $resourceType,
         RequestArgument\Sorting $sort = null,
         RequestArgument\Filter $filter = null,
-        RequestArgument\Page $page = null
+        RequestArgument\Page $page = null,
+        string $apiVersion = ExposableTypeMapInterface::NEXT_VERSION
     ) {
         try {
-            $repository = $this->getRepositoryForResourceType($resourceType);
+            $repository = $this->getRepositoryForResourceType($resourceType, $apiVersion);
             if (class_exists('Tideways\Profiler')) {
                 \Tideways\Profiler::setTransactionName(
                     sprintf('%s::listAction', $repository->getEntityClassName())
@@ -105,7 +108,8 @@ class GenericModelController extends ApiController
     }
 
     /**
-     * @param ReadModelInterface $resource
+     * /**
+     * @param $apiVersion string
      */
     public function showAction(ReadModelInterface $resource)
     {
@@ -149,8 +153,10 @@ class GenericModelController extends ApiController
             );
         }
         $resourceResource = $this->findResourceResource($resource);
-        $relationship = ObjectAccess::getProperty($resourceResource->getRelationships(),
-            $relationshipName);
+        $relationship = ObjectAccess::getProperty(
+            $resourceResource->getRelationships(),
+            $relationshipName
+        );
         $this->view->assign('value', $relationship);
     }
 
@@ -196,7 +202,6 @@ class GenericModelController extends ApiController
         RequestArgument\Filter $filter = null,
         RequestArgument\Page $page = null
     ) {
-
         if ($sort) {
             $result = $result->matching($sort->getCriteria());
         }
@@ -244,27 +249,22 @@ class GenericModelController extends ApiController
 
     /**
      * @param string $resourceType
-     * @return string
-     * @throws FormatNotSupportedException
-     */
-    protected function getModelClassNameForResourceType(string $resourceType): string
-    {
-        return $this->exposableTypeMap->getClassName(strtolower($resourceType));
-    }
-
-    /**
-     * @param string $resourceType
      * @param string $propertyName
      * @return string
      */
-    protected function getModelClassNameForResourceTypeProperty(string $resourceType, string $propertyName): string
-    {
+    protected function getModelClassNameForResourceTypeProperty(
+        string $resourceType,
+        string $apiVersion,
+        string $propertyName
+    ): string {
         try {
             $type = TypeHandling::parseType(
-                (string)$this->exposableTypeMap->getClassNameForProperty(
-                    strtolower($resourceType),
-                    strtolower($propertyName)
-                )
+                (string)$this->exposableTypeMap
+                    ->getPropertyType(
+                        typeName: strtolower($resourceType),
+                        apiVersion: $apiVersion,
+                        propertyName: strtolower($propertyName)
+                    )
             );
             return $type['elementType'] ?: $type['type'];
         } catch (\Exception $e) {
@@ -274,17 +274,26 @@ class GenericModelController extends ApiController
 
     /**
      * @param string $resourceType
+     * @param string $apiVersion
      * @return GenericModelRepositoryInterface
      * @throws FormatNotSupportedException
      * @throws UnknownObjectException
      */
-    protected function getRepositoryForResourceType(string $resourceType): GenericModelRepositoryInterface
-    {
-        $class = $this->getModelClassNameForResourceType($resourceType);
+    protected function getRepositoryForResourceType(
+        string $resourceType,
+        string $apiVersion
+    ): GenericModelRepositoryInterface {
+        $class = $this
+            ->exposableTypeMap
+            ->getExposableTypeByTypeName($resourceType, $apiVersion)
+            ->className;
         $parentClasses = array_merge([$class], class_parents($class));
         foreach ($parentClasses as $modelCandidate) {
-            $repositoryCandidate = str_replace('\\Domain\\Model\\', '\\Domain\\Repository\\',
-                    $modelCandidate) . 'Repository';
+            $repositoryCandidate = str_replace(
+                    '\\Domain\\Model\\',
+                    '\\Domain\\Repository\\',
+                    $modelCandidate
+                ) . 'Repository';
             if (class_exists($repositoryCandidate)) {
                 return $this->objectManager->get($repositoryCandidate);
             }
@@ -322,31 +331,47 @@ class GenericModelController extends ApiController
         if (!$this->request->hasArgument('resourceType')) {
             return;
         }
-        $typeValue = ucfirst($this->request->getArgument('subPackage')) . '/' . ucfirst($this->request->getArgument('resourceType'));
-        $this->request->setArgument('resourceType', $typeValue);
 
-        $modelClassName = $this->getModelClassNameForResourceType($typeValue);
+        $exposableType = $this
+            ->exposableTypeMap
+            ->getExposableTypeByTypeName(
+                typeName: $this->request->getArgument('subPackage') . '/' . $this->request->getArgument('resourceType'),
+                apiVersion: $this->request->hasArgument('apiVersion')
+                    ? $this->request->getArgument('apiVersion')
+                    : ExposableTypeMapInterface::NEXT_VERSION
+            );
+
+        $this->request->setArgument('resourceType', $exposableType->typeName);
 
         $relationshipClassName = $this->arguments->hasArgument('relationshipName')
             ? $this->getModelClassNameForResourceTypeProperty(
-                $typeValue,
-                $this->request->getArgument('relationshipName')
+                resourceType: $exposableType->typeName,
+                apiVersion: $exposableType->apiVersion ?? ExposableTypeMapInterface::NEXT_VERSION,
+                propertyName: $this->request->getArgument('relationshipName')
             )
             : null;
 
         $this->remapActionArgument(
             'resource',
-            $modelClassName
+            $exposableType->className
         );
 
         $this->remapActionArgument(
             'sort',
-            str_replace('\\Model\\', '\\Repository\\Sorting\\', $relationshipClassName ?: $modelClassName) . 'Sorting'
+            str_replace(
+                '\\Model\\',
+                '\\Repository\\Sorting\\',
+                $relationshipClassName ?: $exposableType->className
+            ) . 'Sorting'
         );
 
         $this->remapActionArgument(
             'filter',
-            str_replace('\\Model\\', '\\Repository\\Filter\\', $relationshipClassName ?: $modelClassName) . 'Filter',
+            str_replace(
+                '\\Model\\',
+                '\\Repository\\Filter\\',
+                $relationshipClassName ?: $exposableType->className
+            ) . 'Filter',
             []
         );
     }
@@ -391,7 +416,6 @@ class GenericModelController extends ApiController
     {
         $resourceInformation = $this->resourceMapper->findResourceInformation($resource);
         return $resourceInformation->getResource($resource);
-
     }
 
     protected function applyPaginationMetaToTopLevel(
@@ -400,7 +424,6 @@ class GenericModelController extends ApiController
         int $limitedResultCount,
         RequestArgument\Page $page = null
     ): TopLevel {
-
         $meta = $topLevel->getMeta();
         $links = $topLevel->getLinks();
 
@@ -433,7 +456,9 @@ class GenericModelController extends ApiController
         $links['current'] = $withPageNumber($pageMeta['current']);
         $links['first'] = $withPageNumber(0);
         $links['last'] = $withPageNumber($pageMeta['last-page']);
-        $links['next'] = $pageMeta['current'] < $pageMeta['last-page'] ? $withPageNumber($pageMeta['current'] + 1) : null;
+        $links['next'] = $pageMeta['current'] < $pageMeta['last-page']
+            ? $withPageNumber($pageMeta['current'] + 1)
+            : null;
         $links['prev'] = $pageMeta['current'] > 0 ? $withPageNumber($pageMeta['current'] - 1) : null;
 
         return $topLevel;
@@ -441,26 +466,38 @@ class GenericModelController extends ApiController
 
     protected function mapRequestArgumentsToControllerArguments()
     {
-        /* @var $argument \Neos\Flow\Mvc\Controller\Argument */
-        foreach ($this->arguments as $argument) {
-            $argumentName = $argument->getName();
-            if ($argument->getMapRequestBody()) {
-                $body = $this->request->getHttpRequest()->getParsedBody();
-                if (is_array($body)) {
-                    $body = Arrays::arrayMergeRecursiveOverrule($body, $this->request->getHttpRequest()->getUploadedFiles());
-                }
-                if ($argumentName === 'resource' && array_keys($body) === ['resource']) {
-                    // Backwards compatibility for old-style resource requests
-                    $body = $body['resource'];
-                }
+        $apiVersion = $this->request->hasArgument('apiVersion')
+            ? ($this->request->getArgument('apiVersion') ?: null)
+            : null;
 
-                $argument->setValue($body);
-            } elseif ($this->request->hasArgument($argumentName)) {
-                $argument->setValue($this->request->getArgument($argumentName));
-            } elseif ($argument->isRequired()) {
-                throw new RequiredArgumentMissingException('Required argument "' . $argumentName  . '" is not set.', 1298012500);
+        ExposableTypeMap::forceApiVersion($apiVersion, function () {
+            foreach ($this->arguments as $argument) {
+                assert($argument instanceof Argument);
+                $argumentName = $argument->getName();
+                if ($argument->getMapRequestBody()) {
+                    $body = $this->request->getHttpRequest()->getParsedBody();
+                    if (is_array($body)) {
+                        $body = Arrays::arrayMergeRecursiveOverrule(
+                            $body,
+                            $this->request->getHttpRequest()->getUploadedFiles()
+                        );
+                    }
+                    if ($argumentName === 'resource' && array_keys($body) === ['resource']) {
+                        // Backwards compatibility for old-style resource requests
+                        $body = $body['resource'];
+                    }
+
+                    $argument->setValue($body);
+                } elseif ($this->request->hasArgument($argumentName)) {
+                    $argument->setValue($this->request->getArgument($argumentName));
+                } elseif ($argument->isRequired()) {
+                    throw new RequiredArgumentMissingException(
+                        'Required argument "' . $argumentName . '" is not set.',
+                        1298012500
+                    );
+                }
             }
-        }
+        });
     }
 
 }

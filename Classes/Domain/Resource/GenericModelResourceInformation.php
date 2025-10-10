@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Resource;
@@ -11,6 +12,7 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Resource;
  * source code.
  */
 
+use Athleta\Personen\Domain\Model\Person;
 use Doctrine\Common\Collections\AbstractLazyCollection;
 use GuzzleHttp\Psr7\Uri;
 use Neos\Flow\Annotations as Flow;
@@ -20,9 +22,9 @@ use Neos\Flow\Mvc\Routing\Exception\MissingActionNameException;
 use Neos\Flow\Property\Exception\FormatNotSupportedException;
 use Neos\Utility\Exception\InvalidTypeException;
 use Neos\Utility\ObjectAccess;
-use Neos\Utility\TypeHandling;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Configuration\ConfigurationProvider;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\GenericModelInterface;
+use Netlogix\JsonApiOrg\Resource\Information\ExposableType;
 use Netlogix\JsonApiOrg\Resource\Information\ExposableTypeMapInterface;
 use Netlogix\JsonApiOrg\Resource\Information\LinksAwareResourceInformationInterface;
 use Netlogix\JsonApiOrg\Resource\Information\MetaAwareResourceInformationInterface;
@@ -31,11 +33,17 @@ use Netlogix\JsonApiOrg\Resource\Information\ResourceInformationInterface;
 use Netlogix\JsonApiOrg\Schema\Relationships;
 use Psr\Http\Message\UriInterface;
 
+use function array_filter;
+
 /**
  * @Flow\Scope("singleton")
  */
-class GenericModelResourceInformation extends ResourceInformation implements ResourceInformationInterface, LinksAwareResourceInformationInterface, MetaAwareResourceInformationInterface
+class GenericModelResourceInformation extends ResourceInformation implements ResourceInformationInterface,
+                                                                             LinksAwareResourceInformationInterface,
+                                                                             MetaAwareResourceInformationInterface
 {
+    private const TYPE_NAME_PATTERN = '%^(?<subPackage>[^/]+)/(?<resourceType>.+)$%';
+
     /**
      * @var int
      */
@@ -64,12 +72,11 @@ class GenericModelResourceInformation extends ResourceInformation implements Res
     protected $payloadClassName = GenericModelInterface::class;
 
     /**
-     * @param mixed $resource
-     * @return array
+     * @return array<string, mixed>
      * @throws FormatNotSupportedException
      * @throws InvalidTypeException
      */
-    public function getResourceControllerArguments($resource): array
+    public function getResourceControllerArguments(mixed $resource): array
     {
         static $resultCache = null;
         if ($resultCache === null) {
@@ -80,18 +87,35 @@ class GenericModelResourceInformation extends ResourceInformation implements Res
             return $resultCache->offsetGet($resource);
         }
 
-        $settings = $this->configurationProvider->getSettingsForType($resource);
+
+        $configuration = $this
+            ->configurationProvider
+            ->getSettingsForType($resource);
+        $exposable = $this
+            ->exposableTypeMap
+            ->getExposableTypeByClassIdentifier($configuration->className);
+
+        $argumentName = $configuration->argumentName;
         $result = [
-            $settings['argumentName'] => $resource,
+            $argumentName => $resource,
+            ... $this->getRequestArgumentPointer($exposable),
         ];
-        $type = TypeHandling::getTypeForValue($resource);
-        $typeString = (string)$this->map->getType($type);
-        if (preg_match('%^(?<subPackage>[^/]+)/(?<resourceType>.+)$%', (string)$typeString)) {
-            list($result['subPackage'], $result['resourceType']) = explode('/', $typeString, 2);
-        }
+        $result = array_filter($result, fn($value) => $value !== null);
 
         $resultCache->offsetSet($resource, $result);
         return $result;
+    }
+
+    public function getRequestArgumentPointer(ExposableType $exposableType): array
+    {
+        $arguments = [];
+        if (preg_match(self::TYPE_NAME_PATTERN, (string)$exposableType->typeName, $matches)) {
+            $arguments = array_intersect_key($matches, ['subPackage' => true, 'resourceType' => true]);
+        }
+        if ($exposableType->apiVersion) {
+            $arguments['apiVersion'] = $exposableType->apiVersion;
+        }
+        return $arguments;
     }
 
     public function getLinksForPayload($payload): array
@@ -102,7 +126,8 @@ class GenericModelResourceInformation extends ResourceInformation implements Res
     public function getLinksForRelationship($payload, $relationshipName, $relationshipType = null): array
     {
         $result = [];
-        $relationshipType = $relationshipType ?: $this->getResource($payload)->getRelationshipsToBeApiExposed()[$relationshipName];
+        $relationshipType = $relationshipType
+            ?: $this->getResource($payload)->getRelationshipsToBeApiExposed()[$relationshipName];
         if ($relationshipType === Relationships::RELATIONSHIP_TYPE_COLLECTION) {
             try {
                 $result['first'] = $this->getPublicRelatedUri($payload, $relationshipName);
@@ -114,7 +139,6 @@ class GenericModelResourceInformation extends ResourceInformation implements Res
                 $result['first'] = $result['first']->withQuery(http_build_query($arguments));
                 $result['first'] = (string)$result['first'];
             } catch (NoMatchingRouteException $e) {
-
             }
         }
         return $result;
@@ -128,7 +152,8 @@ class GenericModelResourceInformation extends ResourceInformation implements Res
     public function getMetaForRelationship($payload, $relationshipName, $relationshipType = null, $included = false)
     {
         $result = [];
-        $relationshipType = $relationshipType ?: $this->getResource($payload)->getRelationshipsToBeApiExposed()[$relationshipName];
+        $relationshipType = $relationshipType
+            ?: $this->getResource($payload)->getRelationshipsToBeApiExposed()[$relationshipName];
         if ($relationshipType === Relationships::RELATIONSHIP_TYPE_COLLECTION) {
             try {
                 $data = ObjectAccess::getProperty($payload, $relationshipName);
@@ -143,19 +168,16 @@ class GenericModelResourceInformation extends ResourceInformation implements Res
                 }
             } catch (\Exception $e) {
             }
-
         }
         return $result;
     }
 
     /**
-     * @param mixed $resource
-     * @param string $relationshipName
-     * @return array
+     * @return array<string, mixed>
      * @throws FormatNotSupportedException
      * @throws InvalidTypeException
      */
-    protected function getRelationshipControllerArguments($resource, $relationshipName)
+    protected function getRelationshipControllerArguments(mixed $resource, string $relationshipName): array
     {
         $result = $this->getResourceControllerArguments($resource);
         $result['relationshipName'] = $relationshipName;
@@ -163,16 +185,16 @@ class GenericModelResourceInformation extends ResourceInformation implements Res
     }
 
     /**
-     * @param mixed $resource
-     * @param string $controllerActionName
-     * @param array $controllerArguments
-     * @return UriInterface
+     * @param array<mixed, mixed> $controllerArguments
      * @throws FormatNotSupportedException
      * @throws InvalidTypeException
      * @throws MissingActionNameException
      */
-    protected function getPublicUri($resource, $controllerActionName, array $controllerArguments = array()): UriInterface
-    {
+    protected function getPublicUri(
+        mixed $resource,
+        string $controllerActionName,
+        array $controllerArguments = []
+    ): UriInterface {
         $settings = $this->configurationProvider->getSettingsForType($resource);
 
         $uriBuilder = $this->resourceMapper->getControllerContext()->getUriBuilder();
@@ -187,9 +209,9 @@ class GenericModelResourceInformation extends ResourceInformation implements Res
         $uri = $uriBuilder->uriFor(
             $controllerActionName,
             $controllerArguments,
-            $settings['controllerName'],
-            $settings['packageKey'],
-            $settings['subPackageKey']
+            $settings->requestControllerName,
+            $settings->requestPackageKey,
+            $settings->requestSubPackageKey
         );
 
         return new Uri($uri);

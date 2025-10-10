@@ -33,8 +33,8 @@ trait ArrayAccessPropertyReadTrait
     public function offsetExists($offset)
     {
         $settings = $this->configurationProvider->getSettingsForType(TypeHandling::getTypeForValue($this));
-        return in_array($offset, $settings['attributesToBeApiExposed'])
-            || array_key_exists($offset, $settings['relationshipsToBeApiExposed']);
+        return in_array($offset, $settings->attributesToBeApiExposed)
+            || array_key_exists($offset, $settings->relationshipsToBeApiExposed);
     }
 
     /**

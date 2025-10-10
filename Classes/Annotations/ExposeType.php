@@ -6,9 +6,10 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Annotations;
 
 use Attribute;
 use Doctrine\Common\Annotations\Annotation\NamedArgumentConstructor;
+use Neos\Flow\Annotations as Flow;
 
 /**
- * A model class which should be available as api resource needs this
+ * A model class which should be available as an api resource needs this
  * annotation.
  *
  * @Annotation
@@ -16,87 +17,49 @@ use Doctrine\Common\Annotations\Annotation\NamedArgumentConstructor;
  * @NamedArgumentConstructor
  */
 #[Attribute(Attribute::TARGET_CLASS)]
+#[Flow\Proxy(false)]
 final class ExposeType
 {
-    /**
-     * Usually types are composed by package key and class name. This allows
-     * the type to be forced to an alternative value.
-     *
-     * @var string
-     */
-    public $typeName = null;
-
-    /**
-     * Each exposed object needs to be available through its resource URI, so having
-     * a controller in place is mandatory.
-     *
-     * This is the controller name.
-     *
-     * @var string
-     */
-    public $controllerName = null;
-
-    /**
-     * Each exposed object needs to be available through its resource URI, so having
-     * a controller in place is mandatory.
-     *
-     * This is the package key.
-     *
-     * @var string
-     */
-    public $packageKey;
-
-    /**
-     * Each exposed object needs to be available through its resource URI, so having
-     * a controller in place is mandatory.
-     *
-     * This is the sub package key.
-     *
-     * @var string
-     */
-    public $subPackageKey = null;
-
-    /**
-     * Each exposed object needs to be available through its resource URI, so having
-     * a controller in place is mandatory.
-     *
-     * This is the action name.
-     *
-     * @var string
-     */
-    public $actionName = 'index';
-
-    /**
-     * Usually the action argument "$resource" is used. To name the input argument more
-     * domain specific, this allows renaming.
-     *
-     * @var string
-     */
-    public $argumentName = 'resource';
-
-    /**
-     * Most exposed objects should be visible in endpoint discovery. But sometimes objects
-     * are only available through other objects. This flag hides them in endpoint discovery.
-     *
-     * @var bool
-     */
-    public $private = false;
-
     public function __construct(
-        string $packageKey,
-        string $typeName = null,
-        string $controllerName = null,
-        string $subPackageKey = null,
-        string $actionName = 'index',
-        string $argumentName = 'resource',
-        bool $private = false
+        public readonly ?string $typeName = null,
+
+        public readonly ?string $requestPackageKey = null,
+
+        public readonly ?string $requestControllerName = null,
+
+        public readonly ?string $requestSubPackageKey = null,
+
+        public readonly ?string $requestActionName = null,
+
+        public readonly ?string $requestArgumentName = null,
+
+        public readonly ?bool $private = null,
+
+        public readonly ?string $apiVersion = null,
+
+        /**
+         * Allow for similar type names and api versions, as long as the
+         * one to be used publicly is known.
+         */
+        public readonly ?string $replaces = null,
     ) {
-        $this->packageKey = $packageKey;
-        $this->typeName = $typeName;
-        $this->controllerName = $controllerName;
-        $this->subPackageKey = $subPackageKey;
-        $this->actionName = $actionName;
-        $this->argumentName = $argumentName;
-        $this->private = $private;
+    }
+
+    public function toArray(bool $skipNull = true): array
+    {
+        $result = [
+            'typeName' => $this->typeName,
+            'requestPackageKey' => $this->requestPackageKey,
+            'requestControllerName' => $this->requestControllerName,
+            'requestSubPackageKey' => $this->requestSubPackageKey,
+            'requestActionName' => $this->requestActionName,
+            'requestArgumentName' => $this->requestArgumentName,
+            'private' => $this->private,
+            'apiVersion' => $this->apiVersion,
+        ];
+        if ($skipNull) {
+            $result = array_filter($result, fn($v) => $v !== null);
+        }
+        return $result;
     }
 }
