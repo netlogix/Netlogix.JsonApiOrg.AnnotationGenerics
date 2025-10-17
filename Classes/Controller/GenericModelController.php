@@ -18,6 +18,7 @@ use Neos\Flow\Annotations as Flow;
 use Neos\Flow\Http\Helper\UriHelper;
 use Neos\Flow\Mvc\ActionRequest;
 use Neos\Flow\Mvc\Controller\Argument;
+use Neos\Flow\Mvc\Controller\Arguments;
 use Neos\Flow\Mvc\Exception\InvalidArgumentNameException;
 use Neos\Flow\Mvc\Exception\InvalidArgumentTypeException;
 use Neos\Flow\Mvc\Exception\NoSuchArgumentException;
@@ -308,9 +309,9 @@ class GenericModelController extends ApiController
      * @throws NoSuchArgumentException
      * @throws PropertyNotAccessibleException
      */
-    protected function initializeActionMethodArguments()
+    protected function initializeActionMethodArguments(Arguments $arguments)
     {
-        parent::initializeActionMethodArguments();
+        parent::initializeActionMethodArguments($arguments);
         $this->remapActionArguments();
     }
 
@@ -443,15 +444,12 @@ class GenericModelController extends ApiController
 
         $baseUri = new Uri((string)$request->getHttpRequest()->getUri());
 
-        $withPageNumber = function (int $pageNumber) use ($baseUri, $page) {
-            $arguments = UriHelper::parseQueryIntoArguments($baseUri);
-            $arguments['page'] = [
+        $withPageNumber = fn (int $pageNumber) => (string)UriHelper::uriWithAdditionalQueryParameters($baseUri, [
+            'page' => [
                 'size' => $page->getSize(),
-                'number' => $page->getNumber()
-            ];
-            $arguments['page']['number'] = $pageNumber;
-            return (string)UriHelper::uriWithArguments($baseUri, $arguments);
-        };
+                'number' => $pageNumber,
+            ]
+        ]);
 
         $links['current'] = $withPageNumber($pageMeta['current']);
         $links['first'] = $withPageNumber(0);
@@ -464,22 +462,22 @@ class GenericModelController extends ApiController
         return $topLevel;
     }
 
-    protected function mapRequestArgumentsToControllerArguments()
+    protected function mapRequestArgumentsToControllerArguments(ActionRequest $request, Arguments $arguments)
     {
-        $apiVersion = $this->request->hasArgument('apiVersion')
-            ? ($this->request->getArgument('apiVersion') ?: null)
+        $apiVersion = $request->hasArgument('apiVersion')
+            ? ($request->getArgument('apiVersion') ?: null)
             : null;
 
-        ExposableTypeMap::forceApiVersion($apiVersion, function () {
+        ExposableTypeMap::forceApiVersion($apiVersion, function () use ($request) {
             foreach ($this->arguments as $argument) {
                 assert($argument instanceof Argument);
                 $argumentName = $argument->getName();
                 if ($argument->getMapRequestBody()) {
-                    $body = $this->request->getHttpRequest()->getParsedBody();
+                    $body = $request->getHttpRequest()->getParsedBody();
                     if (is_array($body)) {
                         $body = Arrays::arrayMergeRecursiveOverrule(
                             $body,
-                            $this->request->getHttpRequest()->getUploadedFiles()
+                            $request->getHttpRequest()->getUploadedFiles()
                         );
                     }
                     if ($argumentName === 'resource' && array_keys($body) === ['resource']) {
@@ -488,8 +486,8 @@ class GenericModelController extends ApiController
                     }
 
                     $argument->setValue($body);
-                } elseif ($this->request->hasArgument($argumentName)) {
-                    $argument->setValue($this->request->getArgument($argumentName));
+                } elseif ($request->hasArgument($argumentName)) {
+                    $argument->setValue($request->getArgument($argumentName));
                 } elseif ($argument->isRequired()) {
                     throw new RequiredArgumentMissingException(
                         'Required argument "' . $argumentName . '" is not set.',

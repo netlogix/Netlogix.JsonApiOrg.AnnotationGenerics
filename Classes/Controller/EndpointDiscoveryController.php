@@ -19,7 +19,6 @@ use Netlogix\JsonApiOrg\AnnotationGenerics\Annotations as JsonApi;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Configuration\ConfigurationProvider;
 use Netlogix\JsonApiOrg\Resource\Information\ExposableTypeMapInterface;
 use Netlogix\JsonApiOrg\Resource\Information\ResourceMapper;
-use Netlogix\JsonApiOrg\View\JsonView;
 
 use function array_filter;
 use function in_array;
@@ -37,10 +36,6 @@ class EndpointDiscoveryController extends ActionController
         'application/vnd.api+json',
         'application/json',
         'text/html',
-    ];
-
-    protected $viewFormatToObjectNameMap = [
-        'json' => JsonView::class,
     ];
 
     #[Flow\InjectConfiguration(package: 'Netlogix.JsonApiOrg', path: 'endpointDiscovery.additionalLinks')]
@@ -80,7 +75,7 @@ class EndpointDiscoveryController extends ActionController
     public function indexAction(
         string $packageKey = '',
         string $apiVersion = 'all'
-    ): void {
+    ): string {
         $cacheIdentifier = $this->getCacheIdentifier($packageKey, $apiVersion);
         if ($this->resultsCache->has($cacheIdentifier)) {
             $result = $this->resultsCache->get($cacheIdentifier);
@@ -118,7 +113,9 @@ class EndpointDiscoveryController extends ActionController
             $this->resultsCache->set($cacheIdentifier, $result);
         }
 
-        $this->view->assign('value', $result);
+        $this->response->setContentType('application/json');
+
+        return json_encode($result, \JSON_PRETTY_PRINT);
     }
 
     /**
