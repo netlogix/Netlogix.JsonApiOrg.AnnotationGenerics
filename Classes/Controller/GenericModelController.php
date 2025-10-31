@@ -25,6 +25,7 @@ use Neos\Flow\Mvc\Exception\RequiredArgumentMissingException;
 use Neos\Flow\ObjectManagement\Exception\UnknownObjectException;
 use Neos\Flow\Property\Exception\FormatNotSupportedException;
 use Neos\Flow\Property\PropertyMappingConfiguration;
+use Neos\Flow\Validation\Validator\RawValidator;
 use Neos\Utility\Arrays;
 use Neos\Utility\Exception\PropertyNotAccessibleException;
 use Neos\Utility\ObjectAccess;
@@ -40,6 +41,9 @@ use Netlogix\JsonApiOrg\Controller\ApiController;
 use Netlogix\JsonApiOrg\Resource\Information\ExposableTypeMapInterface;
 use Netlogix\JsonApiOrg\Schema\ResourceInterface;
 use Netlogix\JsonApiOrg\Schema\TopLevel;
+
+use function is_a;
+use function is_string;
 
 /**
  * An action controller dealing with jsonapi.org data structures.
@@ -90,7 +94,7 @@ class GenericModelController extends ApiController
                 'errors' => [
                     'code' => 400,
                     'title' => 'The resource type "' . strtolower($resourceType) . '" is not an aggregate root.',
-                ]
+                ],
             ];
             return json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
         }
@@ -259,7 +263,7 @@ class GenericModelController extends ApiController
     ): string {
         try {
             $type = TypeHandling::parseType(
-                (string)$this->exposableTypeMap
+                (string) $this->exposableTypeMap
                     ->getPropertyType(
                         typeName: strtolower($resourceType),
                         apiVersion: $apiVersion,
@@ -441,16 +445,16 @@ class GenericModelController extends ApiController
         $request = $this->controllerContext->getRequest();
         assert($request instanceof ActionRequest);
 
-        $baseUri = new Uri((string)$request->getHttpRequest()->getUri());
+        $baseUri = new Uri((string) $request->getHttpRequest()->getUri());
 
         $withPageNumber = function (int $pageNumber) use ($baseUri, $page) {
             $arguments = UriHelper::parseQueryIntoArguments($baseUri);
             $arguments['page'] = [
                 'size' => $page->getSize(),
-                'number' => $page->getNumber()
+                'number' => $page->getNumber(),
             ];
             $arguments['page']['number'] = $pageNumber;
-            return (string)UriHelper::uriWithArguments($baseUri, $arguments);
+            return (string) UriHelper::uriWithArguments($baseUri, $arguments);
         };
 
         $links['current'] = $withPageNumber($pageMeta['current']);
@@ -489,7 +493,15 @@ class GenericModelController extends ApiController
 
                     $argument->setValue($body);
                 } elseif ($this->request->hasArgument($argumentName)) {
-                    $argument->setValue($this->request->getArgument($argumentName));
+                    $argumentValue = $this->request->getArgument($argumentName);
+                    if ($argumentName === 'resource'
+                        && is_string($argumentValue)
+                        && is_a($argument->getDataType(), ReadModelInterface::class, true)
+                    ) {
+                        // Loading an object from persistence doesn't require validation
+                        $argument->setValidator(new RawValidator());
+                    }
+                    $argument->setValue($argumentValue);
                 } elseif ($argument->isRequired()) {
                     throw new RequiredArgumentMissingException(
                         'Required argument "' . $argumentName . '" is not set.',
