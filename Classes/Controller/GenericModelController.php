@@ -356,7 +356,7 @@ class GenericModelController extends ApiController
             : null;
 
         $this->remapActionArgument(
-            'resource',
+            $this->resourceArgumentName,
             $exposableType->className
         );
 
@@ -486,15 +486,15 @@ class GenericModelController extends ApiController
                             $this->request->getHttpRequest()->getUploadedFiles()
                         );
                     }
-                    if ($argumentName === 'resource' && array_keys($body) === ['resource']) {
+                    if ($argumentName === $this->resourceArgumentName && array_keys($body) === [$this->resourceArgumentName]) {
                         // Backwards compatibility for old-style resource requests
-                        $body = $body['resource'];
+                        $body = $body[$this->resourceArgumentName];
                     }
 
                     $argument->setValue($body);
                 } elseif ($this->request->hasArgument($argumentName)) {
                     $argumentValue = $this->request->getArgument($argumentName);
-                    if ($argumentName === 'resource'
+                    if ($argumentName === $this->resourceArgumentName
                         && is_string($argumentValue)
                         && is_a($argument->getDataType(), ReadModelInterface::class, true)
                     ) {
