@@ -13,6 +13,7 @@ namespace Netlogix\JsonApiOrg\AnnotationGenerics\Resource\Information;
  */
 
 use Doctrine\Common\Collections\Collection;
+use Neos\Cache\Frontend\VariableFrontend;
 use Neos\Flow\Annotations as Flow;
 use Neos\Flow\ObjectManagement\ObjectManagerInterface;
 use Neos\Flow\Package\PackageManager;
@@ -33,7 +34,9 @@ use function array_values;
 class ExposableTypeMap extends BaseExposableTypeMap implements ExposableTypeMapInterface
 {
 
-    const PATTERN = '%^(?<vendor>[^\\\\]+)\\\\(?<package>[^\\\\]+)\\\\(?<subpackage>.+)?\\\\domain\\\\(?<type>model|command)\\\\(?<flat>.*)$%i';
+    public const string PATTERN = '%^(?<vendor>[^\\\\]+)\\\\(?<package>[^\\\\]+)\\\\(?<subpackage>.+)?\\\\domain\\\\(?<type>model|command)\\\\(?<flat>.*)$%i';
+
+    public const string CACHE = 'Netlogix.JsonApiOrg.AnnotationGenerics:ExposableTypeMapCache';
 
     /**
      * @Flow\Inject
@@ -48,6 +51,12 @@ class ExposableTypeMap extends BaseExposableTypeMap implements ExposableTypeMapI
     protected $psrSystemLoggerInterface;
 
     /**
+     * @var VariableFrontend
+     * @Flow\Inject(name=ExposableTypeMap::CACHE)
+     */
+    protected $exposableTypeMapCache;
+
+    /**
      * All "ExposeType" objects are initialized automatically
      */
     public function initializeObject()
@@ -56,7 +65,10 @@ class ExposableTypeMap extends BaseExposableTypeMap implements ExposableTypeMapI
             'exposableTypes' => $exposableTypes,
             'classNameToPropertyNamesMap' => $classNameToPropertyNamesMap,
             'classNameToMethodNamesMap' => $classNameToMethodNamesMap,
-            ) = static::collectKnownTypes($this->objectManager);
+            ) = $this->collectAndCacheKnownTypes();
+        assert(is_array($exposableTypes));
+        assert(is_array($classNameToPropertyNamesMap));
+        assert(is_array($classNameToMethodNamesMap));
 
         foreach ($exposableTypes as $exposableType) {
             $this->registerExposableType($exposableType);
@@ -104,7 +116,7 @@ class ExposableTypeMap extends BaseExposableTypeMap implements ExposableTypeMapI
     protected function registerKnownPropertyType(ExposableType $exposableType, string $propertyName, string $varType)
     {
         $varType = TypeHandling::parseType($varType);
-        $isCollection = (bool)$varType['elementType'];
+        $isCollection = (bool) $varType['elementType'];
         $elementType = $isCollection ? $varType['elementType'] : $varType['type'];
 
         if ($isCollection) {
@@ -130,22 +142,39 @@ class ExposableTypeMap extends BaseExposableTypeMap implements ExposableTypeMapI
     }
 
     /**
-     * This method is compiled statically, as the ReflectionService should not be used in Production context.
+     * Wraps $this->collectKnownTypes() in a cache
+     *
+     * @return array{exposableTypes: ExposableType[], classNameToPropertyNamesMap: array<string, array<string, string>>, classNameToMethodNamesMap: array<string, array<string, string>>}
+     */
+    protected function collectAndCacheKnownTypes(): array
+    {
+        try {
+            $result = $this->exposableTypeMapCache->get('collectKnownTypesCached');
+            if (is_array($result)) {
+                return $result;
+            }
+        } catch (\Throwable) {
+        }
+        $result = $this->collectKnownTypes();
+        $this->exposableTypeMapCache->set('collectKnownTypesCached', $result);
+        return $result;
+    }
+
+    /**
+     * This method is compiled statically, as the ReflectionService should not be used in the Production context.
      * The cached variant of the ReflectionService is missing at least the "methods annotated with".
      *
-     * @Flow\CompileStatic
-     * @param ObjectManagerInterface $objectManager
-     * @return ExposableType[]
+     * @return array{exposableTypes: ExposableType[], classNameToPropertyNamesMap: array<string, array<string, string>>, classNameToMethodNamesMap: array<string, array<string, string>>}
      */
-    protected static function collectKnownTypes(ObjectManagerInterface $objectManager): array
+    protected function collectKnownTypes(): array
     {
         $exposableTypes = [];
         $classNameToPropertyNamesMap = [];
         $classNameToMethodNamesMap = [];
 
-        $reflectionService = $objectManager->get(ReflectionService::class);
-        $packageManager = $objectManager->get(PackageManager::class);
-        $configurationProvider = $objectManager->get(ConfigurationProvider::class);
+        $reflectionService = $this->objectManager->get(ReflectionService::class);
+        $packageManager = $this->objectManager->get(PackageManager::class);
+        $configurationProvider = $this->objectManager->get(ConfigurationProvider::class);
 
         $exposedTypes = $reflectionService->getClassNamesByAnnotation(JsonApi\ExposeType::class);
         foreach ($exposedTypes as $className) {
