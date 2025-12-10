@@ -16,6 +16,7 @@ use Doctrine\Common\Collections\Selectable;
 use GuzzleHttp\Psr7\Uri;
 use Neos\Flow\Annotations as Flow;
 use Neos\Flow\Http\Helper\UriHelper;
+use Neos\Flow\Log\ThrowableStorageInterface;
 use Neos\Flow\Mvc\ActionRequest;
 use Neos\Flow\Mvc\Controller\Argument;
 use Neos\Flow\Mvc\Exception\InvalidArgumentNameException;
@@ -57,6 +58,8 @@ class GenericModelController extends ApiController
      * @Flow\Inject
      */
     protected $exposableTypeMap;
+
+    protected ThrowableStorageInterface $throwableStorage;
 
     /**
      * This action is empty but exists to fetch CORS OPTIONS requests
@@ -200,6 +203,13 @@ class GenericModelController extends ApiController
         $this->view->assign('value', $topLevel);
     }
 
+    public function injectThrowableStorage(ThrowableStorageInterface $throwableStorage)
+    {
+        parent::injectThrowableStorage($throwableStorage);
+
+        $this->throwableStorage = $throwableStorage;
+    }
+
     protected function createTopLevelOfCollection(
         Selectable $result,
         RequestArgument\Sorting $sort = null,
@@ -271,7 +281,15 @@ class GenericModelController extends ApiController
                     )
             );
             return $type['elementType'] ?: $type['type'];
-        } catch (\Exception $e) {
+        } catch (\Throwable $t) {
+            $this->throwableStorage->logThrowable(
+                $t,
+                [
+                    'resourceType' => $resourceType,
+                    'apiVersion' => $apiVersion,
+                    'propertyName' => $propertyName
+                ]
+            );
             return '';
         }
     }
