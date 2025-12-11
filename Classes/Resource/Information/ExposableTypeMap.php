@@ -161,13 +161,12 @@ class ExposableTypeMap extends BaseExposableTypeMap implements ExposableTypeMapI
     }
 
     /**
-     * This method is compiled statically, as the ReflectionService should not be used in the Production context.
-     * The cached variant of the ReflectionService is missing at least the "methods annotated with".
-     *
      * @return array{exposableTypes: ExposableType[], classNameToPropertyNamesMap: array<string, array<string, string>>, classNameToMethodNamesMap: array<string, array<string, string>>}
      */
     protected function collectKnownTypes(): array
     {
+        $annotationsByClassName = static::findAnnotations($this->objectManager);
+
         $exposableTypes = [];
         $classNameToPropertyNamesMap = [];
         $classNameToMethodNamesMap = [];
@@ -176,8 +175,7 @@ class ExposableTypeMap extends BaseExposableTypeMap implements ExposableTypeMapI
         $packageManager = $this->objectManager->get(PackageManager::class);
         $configurationProvider = $this->objectManager->get(ConfigurationProvider::class);
 
-        $exposedTypes = $reflectionService->getClassNamesByAnnotation(JsonApi\ExposeType::class);
-        foreach ($exposedTypes as $className) {
+        foreach ($annotationsByClassName as $className => $reflectionInformation) {
             $configuration = $configurationProvider->getSettingsForType($className);
             $annotations = $reflectionService->getClassAnnotations($className, JsonApi\ExposeType::class);
 
@@ -195,8 +193,7 @@ class ExposableTypeMap extends BaseExposableTypeMap implements ExposableTypeMapI
                 $classNameToPropertyNamesMap[$exposableType->className] = [];
                 $classNameToMethodNamesMap[$exposableType->className] = [];
 
-                $propertyNames = $reflectionService
-                    ->getPropertyNamesByAnnotation($exposableType->className, JsonApi\ExposeProperty::class);
+                $propertyNames = $reflectionInformation['propertyNames'];
                 array_walk(
                     $propertyNames,
                     function (string $propertyName) use (
@@ -219,10 +216,9 @@ class ExposableTypeMap extends BaseExposableTypeMap implements ExposableTypeMapI
                     }
                 );
 
-                $methodNames = $reflectionService
-                    ->getMethodsAnnotatedWith($exposableType->className, JsonApi\ExposeProperty::class);
+                $propertyMethodNames = $reflectionInformation['propertyMethodNames'];
                 array_walk(
-                    $methodNames,
+                    $propertyMethodNames,
                     function (string $methodName) use (
                         $exposableType,
                         $reflectionService,
@@ -255,10 +251,9 @@ class ExposableTypeMap extends BaseExposableTypeMap implements ExposableTypeMapI
                     }
                 );
 
-                $methodNames = $reflectionService
-                    ->getMethodsAnnotatedWith($exposableType->className, JsonApi\ExposeCollection::class);
+                $collectionMethodNames = $reflectionInformation['collectionMethodNames'];
                 array_walk(
-                    $methodNames,
+                    $collectionMethodNames,
                     function (string $methodName) use (
                         $exposableType,
                         $reflectionService,
@@ -303,4 +298,36 @@ class ExposableTypeMap extends BaseExposableTypeMap implements ExposableTypeMapI
         ];
     }
 
+    /**
+     * This method is compiled statically, as the ReflectionService should not be used in the Production context.
+     * The cached variant of the ReflectionService is missing at least the "methods annotated with".
+     *
+     * @Flow\CompileStatic
+     */
+    protected static function findAnnotations(ObjectManagerInterface $objectManager): array
+    {
+        $reflectionService = $objectManager->get(ReflectionService::class);
+
+        $annotationsByClassName = [];
+
+        $exposedTypes = $reflectionService->getClassNamesByAnnotation(JsonApi\ExposeType::class);
+        foreach ($exposedTypes as $className) {
+            $propertyNames = $reflectionService
+                ->getPropertyNamesByAnnotation($className, JsonApi\ExposeProperty::class);
+
+            $propertyMethodNames = $reflectionService
+                ->getMethodsAnnotatedWith($className, JsonApi\ExposeProperty::class);
+
+            $collectionMethodNames = $reflectionService
+                ->getMethodsAnnotatedWith($className, JsonApi\ExposeCollection::class);
+
+            $annotationsByClassName[$className] = [
+                'propertyNames' => $propertyNames,
+                'propertyMethodNames' => $propertyMethodNames,
+                'collectionMethodNames' => $collectionMethodNames
+            ];
+        }
+
+        return $annotationsByClassName;
+    }
 }
