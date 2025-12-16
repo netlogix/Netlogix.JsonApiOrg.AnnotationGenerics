@@ -120,7 +120,7 @@ class ExposableTypeMap extends BaseExposableTypeMap implements ExposableTypeMapI
         $elementType = $isCollection ? $varType['elementType'] : $varType['type'];
 
         $propertyType = $isCollection ? 'array<' . $elementType . '>' : $elementType;
-        $this->registerExposableTypeProperty($exposableType, strtolower($propertyName), strtolower($propertyType));
+        $this->registerExposableTypeProperty($exposableType, strtolower($propertyName), $propertyType);
     }
 
     protected static function guessTypeNameFromClassName(PackageManager $packageManager, string $className): string
