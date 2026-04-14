@@ -26,11 +26,11 @@ trait ArrayAccessPropertyReadTrait
     protected $configurationProvider;
 
     /**
-     * @param $offset
+     * @param mixed $offset
      * @return bool
      * @throws InvalidTypeException
      */
-    public function offsetExists($offset)
+    public function offsetExists(mixed $offset): bool
     {
         $settings = $this->configurationProvider->getSettingsForType(TypeHandling::getTypeForValue($this));
         return in_array($offset, $settings->attributesToBeApiExposed)
@@ -38,12 +38,12 @@ trait ArrayAccessPropertyReadTrait
     }
 
     /**
-     * @param $offset
+     * @param mixed $offset
      * @return mixed
      * @throws InvalidTypeException
      * @throws PropertyNotAccessibleException
      */
-    public function offsetGet($offset)
+    public function offsetGet(mixed $offset): mixed
     {
         if (!$this->offsetExists($offset)) {
             throw new PropertyNotAccessibleException(
@@ -59,12 +59,12 @@ trait ArrayAccessPropertyReadTrait
     }
 
     /**
-     * @param $offset
-     * @param $value
+     * @param mixed $offset
+     * @param mixed $value
      * @throws InvalidTypeException
      * @throws PropertyNotAccessibleException
      */
-    public function offsetSet($offset, $value)
+    public function offsetSet(mixed $offset, mixed $value): void
     {
         $oldValue = $this->offsetGet($offset);
         if ($oldValue === $value) {
@@ -84,11 +84,11 @@ trait ArrayAccessPropertyReadTrait
     }
 
     /**
-     * @param $offset
+     * @param mixed $offset
      * @throws InvalidTypeException
      * @throws PropertyNotAccessibleException
      */
-    public function offsetUnset($offset)
+    public function offsetUnset(mixed $offset): void
     {
         if (!$this->offsetGet($offset)) {
             return;
