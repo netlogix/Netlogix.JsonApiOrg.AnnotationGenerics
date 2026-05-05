@@ -28,6 +28,7 @@ use Netlogix\JsonApiOrg\AnnotationGenerics\Annotations as JsonApi;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Configuration\ConfigurationProvider;
 use Netlogix\JsonApiOrg\Resource\Information\ResourceMapper;
 use Netlogix\JsonApiOrg\View\JsonView;
+use ReflectionClass;
 
 /**
  * @Flow\Scope("singleton")
@@ -157,7 +158,11 @@ class EndpointDiscoveryController extends ActionController
             $type = null;
             $uri = null;
             try {
+                if ((new ReflectionClass($className))->isAbstract()) {
+                    continue;
+                }
                 $resource = $this->getDummyObject($className);
+
                 if ($this->configurationProvider->getSettingsForType($resource)['private']) {
                     continue;
                 }
