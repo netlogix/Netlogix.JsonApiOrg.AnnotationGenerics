@@ -27,6 +27,7 @@ final class Configuration
         public readonly array $attributesToBeApiExposed,
         public readonly array $relationshipsToBeApiExposed,
         public readonly ?string $apiVersion,
+        public readonly ?array $defaults,
     ) {
         /**
          * TODO: Validate:
@@ -51,6 +52,7 @@ final class Configuration
             attributesToBeApiExposed: [],
             relationshipsToBeApiExposed: [],
             apiVersion: null,
+            defaults: null,
         );
     }
 
@@ -95,6 +97,7 @@ final class Configuration
             'attributesToBeApiExposed' => $this->attributesToBeApiExposed,
             'relationshipsToBeApiExposed' => $this->relationshipsToBeApiExposed,
             'apiVersion' => $this->apiVersion,
+            'defaults' => $this->defaults,
         ];
     }
 }
