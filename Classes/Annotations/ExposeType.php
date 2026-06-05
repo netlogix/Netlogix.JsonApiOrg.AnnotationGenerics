@@ -79,6 +79,7 @@ final class ExposeType
             'requestArgumentName' => $this->requestArgumentName,
             'private' => $this->private,
             'apiVersion' => $this->apiVersion,
+            'replaces' => $this->replaces,
             'defaults' => $this->defaults,
         ];
         if ($skipNull) {
