@@ -31,6 +31,7 @@ use Neos\Utility\Arrays;
 use Neos\Utility\Exception\PropertyNotAccessibleException;
 use Neos\Utility\ObjectAccess;
 use Neos\Utility\TypeHandling;
+use Netlogix\JsonApiOrg\AnnotationGenerics\Configuration\ConfigurationProvider;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Doctrine\ExtraLazyPersistentCollection;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\Arguments as RequestArgument;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\GenericModelInterface;
@@ -53,11 +54,11 @@ use function is_string;
  */
 class GenericModelController extends ApiController
 {
-    /**
-     * @var ExposableTypeMapInterface
-     * @Flow\Inject
-     */
-    protected $exposableTypeMap;
+    #[Flow\Inject]
+    protected ExposableTypeMapInterface $exposableTypeMap;
+
+    #[Flow\Inject]
+    protected ConfigurationProvider $configurationProvider;
 
     protected ThrowableStorageInterface $throwableStorage;
 
@@ -333,6 +334,7 @@ class GenericModelController extends ApiController
     protected function initializeActionMethodArguments()
     {
         parent::initializeActionMethodArguments();
+        $this->applyAnnotationDefaults();
         $this->remapActionArguments();
     }
 
@@ -528,6 +530,51 @@ class GenericModelController extends ApiController
                 }
             }
         });
+    }
+
+    /**
+     * Pre-populates the request with annotation-supplied defaults for `page`/`filter`/`sort`
+     * arguments. Runs BEFORE remapActionArguments() so the default lands in $this->request
+     * before remapActionArgument would inject its empty-array default for `filter`, and
+     * before the property-mapping loop reads from the request. Client-supplied values win
+     * (we only inject when the request has no such argument yet).
+     */
+    protected function applyAnnotationDefaults(): void
+    {
+        if (!$this->request->hasArgument('subPackage')
+            || !$this->request->hasArgument('resourceType')
+        ) {
+            return;
+        }
+
+        $exposableType = $this->exposableTypeMap->getExposableTypeByTypeName(
+            typeName: $this->request->getArgument('subPackage') . '/' . $this->request->getArgument('resourceType'),
+            apiVersion: $this->request->hasArgument('apiVersion')
+                ? $this->request->getArgument('apiVersion')
+                : ExposableTypeMapInterface::NEXT_VERSION
+        );
+        $defaults = $this->configurationProvider->getSettingsForType($exposableType->className)->defaults;
+        if ($defaults === null) {
+            return;
+        }
+
+        foreach (['page', 'filter', 'sort'] as $argumentName) {
+            if (!array_key_exists($argumentName, $defaults)) {
+                continue;
+            }
+            $defaultValue = $defaults[$argumentName];
+            if ($this->request->hasArgument($argumentName)) {
+                $clientValue = $this->request->getArgument($argumentName);
+                if (is_array($defaultValue) && is_array($clientValue)) {
+                    $this->request->setArgument(
+                        $argumentName,
+                        Arrays::arrayMergeRecursiveOverrule($defaultValue, $clientValue)
+                    );
+                }
+                continue;
+            }
+            $this->request->setArgument($argumentName, $defaultValue);
+        }
     }
 
 }
