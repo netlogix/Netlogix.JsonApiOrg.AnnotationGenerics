@@ -37,6 +37,7 @@ use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\Arguments as RequestArgu
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\GenericModelInterface;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\ReadModelInterface;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\WriteModelInterface;
+use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Repository\ModelCompanion;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Repository\GenericModelRepositoryInterface;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Resource\Information\ExposableTypeMap;
 use Netlogix\JsonApiOrg\Controller\ApiController;
@@ -310,18 +311,11 @@ class GenericModelController extends ApiController
             ->exposableTypeMap
             ->getExposableTypeByTypeName($resourceType, $apiVersion)
             ->className;
-        $parentClasses = array_merge([$class], class_parents($class));
-        foreach ($parentClasses as $modelCandidate) {
-            $repositoryCandidate = str_replace(
-                    '\\Domain\\Model\\',
-                    '\\Domain\\Repository\\',
-                    $modelCandidate
-                ) . 'Repository';
-            if (class_exists($repositoryCandidate)) {
-                return $this->objectManager->get($repositoryCandidate);
-            }
+        $repositoryClassName = ModelCompanion::forModel($class)->repositoryClassName;
+        if ($repositoryClassName === null) {
+            throw new UnknownObjectException('No Repository found for class "' . $class . '".', 1264589155);
         }
-        throw new UnknownObjectException('No Repository found for class "' . $class . '".', 1264589155);
+        return $this->objectManager->get($repositoryClassName);
     }
 
     /**
@@ -375,6 +369,8 @@ class GenericModelController extends ApiController
             )
             : null;
 
+        $companion = ModelCompanion::forModel($relationshipClassName ?: $exposableType->className);
+
         $this->remapActionArgument(
             $this->resourceArgumentName,
             $exposableType->className
@@ -382,31 +378,23 @@ class GenericModelController extends ApiController
 
         $this->remapActionArgument(
             'sort',
-            str_replace(
-                '\\Model\\',
-                '\\Repository\\Sorting\\',
-                $relationshipClassName ?: $exposableType->className
-            ) . 'Sorting'
+            $companion->sortingClassName
         );
 
         $this->remapActionArgument(
             'filter',
-            str_replace(
-                '\\Model\\',
-                '\\Repository\\Filter\\',
-                $relationshipClassName ?: $exposableType->className
-            ) . 'Filter',
+            $companion->filterClassName,
             []
         );
     }
 
-    protected function remapActionArgument(string $argumentName, string $modelClassName, $default = null)
+    protected function remapActionArgument(string $argumentName, ?string $modelClassName, $default = null)
     {
         if (!$this->arguments->hasArgument($argumentName)) {
             return;
         }
 
-        if (false === class_exists($modelClassName)) {
+        if ($modelClassName === null || false === class_exists($modelClassName)) {
             return;
         }
 
