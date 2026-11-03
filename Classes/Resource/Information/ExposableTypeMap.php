@@ -57,6 +57,14 @@ class ExposableTypeMap extends BaseExposableTypeMap implements ExposableTypeMapI
     protected $exposableTypeMapCache;
 
     /**
+     * Property names in their original case, mapped to their resolved PHP
+     * type string, e.g. 'string' or 'array<Vendor\Package\Domain\Model\Foo>'.
+     *
+     * @var array<string, array<string, string>>
+     */
+    private array $propertyTypesByClassName = [];
+
+    /**
      * All "ExposeType" objects are initialized automatically
      */
     public function initializeObject()
@@ -78,7 +86,7 @@ class ExposableTypeMap extends BaseExposableTypeMap implements ExposableTypeMapI
             $exposableType = $this->getExposableTypeByClassIdentifier($className);
             foreach ($properties as $propertyName => $propertyVarType) {
                 try {
-                    $this->registerKnownPropertyType(
+                    $this->propertyTypesByClassName[$className][$propertyName] = $this->registerKnownPropertyType(
                         exposableType: $exposableType,
                         propertyName: $propertyName,
                         varType: $propertyVarType
@@ -97,7 +105,7 @@ class ExposableTypeMap extends BaseExposableTypeMap implements ExposableTypeMapI
             $exposableType = $this->getExposableTypeByClassIdentifier($className);
             foreach ($methods as $methodName => $methodVarType) {
                 try {
-                    $this->registerKnownPropertyType(
+                    $this->propertyTypesByClassName[$className][$methodName] = $this->registerKnownPropertyType(
                         exposableType: $exposableType,
                         propertyName: $methodName,
                         varType: $methodVarType
@@ -113,7 +121,19 @@ class ExposableTypeMap extends BaseExposableTypeMap implements ExposableTypeMapI
         }
     }
 
-    protected function registerKnownPropertyType(ExposableType $exposableType, string $propertyName, string $varType)
+    /**
+     * Public property names (original case) of the given exposed class,
+     * mapped to their resolved PHP type string, e.g. 'string' or
+     * 'array<Vendor\Package\Domain\Model\Foo>'.
+     *
+     * @return array<string, string>
+     */
+    public function getPropertyTypes(string $className): array
+    {
+        return $this->propertyTypesByClassName[$className] ?? [];
+    }
+
+    protected function registerKnownPropertyType(ExposableType $exposableType, string $propertyName, string $varType): string
     {
         $varType = TypeHandling::parseType($varType);
         $isCollection = (bool) $varType['elementType'];
@@ -121,6 +141,7 @@ class ExposableTypeMap extends BaseExposableTypeMap implements ExposableTypeMapI
 
         $propertyType = $isCollection ? 'array<' . $elementType . '>' : $elementType;
         $this->registerExposableTypeProperty($exposableType, strtolower($propertyName), $propertyType);
+        return $propertyType;
     }
 
     protected static function guessTypeNameFromClassName(PackageManager $packageManager, string $className): string
