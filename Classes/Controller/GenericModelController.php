@@ -106,6 +106,10 @@ class GenericModelController extends ApiController
 
         $result = $repository->getSelectable();
 
+        if ($filter instanceof RequestArgument\ValidatingFilter) {
+            $filter->validate();
+        }
+
         $topLevel = $this->createTopLevelOfCollection(
             $result,
             $sort,
@@ -190,6 +194,13 @@ class GenericModelController extends ApiController
         }
         $resourceResource = $this->findResourceResource($resource);
         $relationship = $resourceResource->getPayloadProperty($relationshipName);
+
+        if ($filter instanceof RequestArgument\RelationshipAwareFilter) {
+            $filter = $filter->forRelatedResourcesOf($resource, $relationshipName);
+        }
+        if ($filter instanceof RequestArgument\ValidatingFilter) {
+            $filter->validate();
+        }
 
         if ($relationship instanceof ExtraLazyPersistentCollection) {
             $topLevel = $this->createTopLevelOfCollection(
