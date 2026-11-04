@@ -19,6 +19,7 @@ use Netlogix\JsonApiOrg\AnnotationGenerics\Annotations as JsonApi;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Configuration\ConfigurationProvider;
 use Netlogix\JsonApiOrg\Resource\Information\ExposableTypeMapInterface;
 use Netlogix\JsonApiOrg\Resource\Information\ResourceMapper;
+use ReflectionClass;
 
 use function array_filter;
 use function in_array;
@@ -130,6 +131,11 @@ class EndpointDiscoveryController extends ActionController
 
         $classes = $this->reflectionService->getClassNamesByAnnotation(JsonApi\ExposeType::class);
         foreach ($classes as $className) {
+            if ((new ReflectionClass($className))->isAbstract()) {
+                // getDummyObject() can't instantiate abstract classes
+                continue;
+            }
+
             $uri = null;
             try {
                 $exposableType = $this->exposableTypeMap->getExposableTypeByClassIdentifier($className);
