@@ -4,3 +4,11 @@ Netlogix_JsonApiOrg_AnnotationGenerics_EndpointDiscovery:
   backendOptions:
     defaultLifetime: 86000
   persistent: false
+
+Netlogix_JsonApiOrg_AnnotationGenerics__ExposableTypeMap:
+    frontend: Neos\Cache\Frontend\VariableFrontend
+    backend: Neos\Cache\Backend\FileBackend
+    backendOptions:
+        # Can be cached indefinitely because it gets flushed whenever files change, see Package.php
+        defaultLifetime: 0
+    persistent: false

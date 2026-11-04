@@ -198,7 +198,7 @@ class ConfigurationProvider
             foreach (
                 $annotation->toArray(skipNull: true) as $setting => $value
             ) {
-                $settings = $settings->with($setting, $annotation->{$setting});
+                $settings = $settings->with($setting, $value);
             }
             if (!$settings->requestControllerName) {
                 $settings = $settings->with('controllerName', $flatType);

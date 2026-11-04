@@ -9,3 +9,12 @@ Netlogix\JsonApiOrg\Resource\Information\ExposableTypeMapInterface:
     arguments:
         1:
             value: Netlogix_JsonApiOrg_AnnotationGenerics_EndpointDiscovery
+
+'Netlogix.JsonApiOrg.AnnotationGenerics:ExposableTypeMapCache':
+    className:         Neos\Cache\Frontend\VariableFrontend
+    scope:             singleton
+    factoryObjectName: Neos\Flow\Cache\CacheManager
+    factoryMethodName: getCache
+    arguments:
+        1:
+            value: Netlogix_JsonApiOrg_AnnotationGenerics__ExposableTypeMap

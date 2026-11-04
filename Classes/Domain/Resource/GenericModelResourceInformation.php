@@ -42,7 +42,7 @@ class GenericModelResourceInformation extends ResourceInformation implements Res
                                                                              LinksAwareResourceInformationInterface,
                                                                              MetaAwareResourceInformationInterface
 {
-    private const TYPE_NAME_PATTERN = '%^(?<subPackage>[^/]+)/(?<resourceType>.+)$%';
+    public const TYPE_NAME_PATTERN = '%^(?<subPackage>[^/]+)/(?<resourceType>.+)$%';
 
     /**
      * @var int

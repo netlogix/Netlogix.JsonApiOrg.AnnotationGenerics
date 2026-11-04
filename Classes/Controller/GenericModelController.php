@@ -16,29 +16,38 @@ use Doctrine\Common\Collections\Selectable;
 use GuzzleHttp\Psr7\Uri;
 use Neos\Flow\Annotations as Flow;
 use Neos\Flow\Http\Helper\UriHelper;
+use Neos\Flow\Log\ThrowableStorageInterface;
 use Neos\Flow\Mvc\ActionRequest;
 use Neos\Flow\Mvc\Controller\Argument;
 use Neos\Flow\Mvc\Controller\Arguments;
 use Neos\Flow\Mvc\Exception\InvalidArgumentNameException;
 use Neos\Flow\Mvc\Exception\InvalidArgumentTypeException;
 use Neos\Flow\Mvc\Exception\NoSuchArgumentException;
+use Neos\Flow\Mvc\Exception\RequiredArgumentMissingException;
 use Neos\Flow\ObjectManagement\Exception\UnknownObjectException;
 use Neos\Flow\Property\Exception\FormatNotSupportedException;
 use Neos\Flow\Property\PropertyMappingConfiguration;
+use Neos\Flow\Validation\Validator\RawValidator;
+use Neos\Utility\Arrays;
 use Neos\Utility\Exception\PropertyNotAccessibleException;
 use Neos\Utility\ObjectAccess;
 use Neos\Utility\TypeHandling;
+use Netlogix\JsonApiOrg\AnnotationGenerics\Configuration\ConfigurationProvider;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Doctrine\ExtraLazyPersistentCollection;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\Arguments as RequestArgument;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\GenericModelInterface;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\ReadModelInterface;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Model\WriteModelInterface;
+use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Repository\ModelCompanion;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Domain\Repository\GenericModelRepositoryInterface;
 use Netlogix\JsonApiOrg\AnnotationGenerics\Resource\Information\ExposableTypeMap;
 use Netlogix\JsonApiOrg\Controller\ApiController;
 use Netlogix\JsonApiOrg\Resource\Information\ExposableTypeMapInterface;
 use Netlogix\JsonApiOrg\Schema\ResourceInterface;
 use Netlogix\JsonApiOrg\Schema\TopLevel;
+
+use function is_a;
+use function is_string;
 
 use function is_null;
 
@@ -49,11 +58,13 @@ use function is_null;
  */
 class GenericModelController extends ApiController
 {
-    /**
-     * @var ExposableTypeMapInterface
-     * @Flow\Inject
-     */
-    protected $exposableTypeMap;
+    #[Flow\Inject]
+    protected ExposableTypeMapInterface $exposableTypeMap;
+
+    #[Flow\Inject]
+    protected ConfigurationProvider $configurationProvider;
+
+    protected ThrowableStorageInterface $throwableStorage;
 
     /**
      * This action is empty but exists to fetch CORS OPTIONS requests
@@ -93,12 +104,16 @@ class GenericModelController extends ApiController
                 'errors' => [
                     'code' => 400,
                     'title' => 'The resource type "' . strtolower($resourceType) . '" is not an aggregate root.',
-                ]
+                ],
             ];
             return json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
         }
 
         $result = $repository->getSelectable();
+
+        if ($filter instanceof RequestArgument\ValidatingFilter) {
+            $filter->validate();
+        }
 
         $topLevel = $this->createTopLevelOfCollection(
             $result,
@@ -213,6 +228,13 @@ class GenericModelController extends ApiController
         $resourceResource = $this->findResourceResource($resource);
         $relationship = $resourceResource->getPayloadProperty($relationshipName);
 
+        if ($filter instanceof RequestArgument\RelationshipAwareFilter) {
+            $filter = $filter->forRelatedResourcesOf($resource, $relationshipName);
+        }
+        if ($filter instanceof RequestArgument\ValidatingFilter) {
+            $filter->validate();
+        }
+
         if ($relationship instanceof ExtraLazyPersistentCollection) {
             $topLevel = $this->createTopLevelOfCollection(
                 $relationship,
@@ -225,6 +247,13 @@ class GenericModelController extends ApiController
         }
 
         $this->view->assign('value', $topLevel);
+    }
+
+    public function injectThrowableStorage(ThrowableStorageInterface $throwableStorage)
+    {
+        parent::injectThrowableStorage($throwableStorage);
+
+        $this->throwableStorage = $throwableStorage;
     }
 
     protected function createTopLevelOfCollection(
@@ -291,7 +320,7 @@ class GenericModelController extends ApiController
     ): string {
         try {
             $type = TypeHandling::parseType(
-                (string)$this->exposableTypeMap
+                (string) $this->exposableTypeMap
                     ->getPropertyType(
                         typeName: strtolower($resourceType),
                         apiVersion: $apiVersion,
@@ -299,7 +328,15 @@ class GenericModelController extends ApiController
                     )
             );
             return $type['elementType'] ?: $type['type'];
-        } catch (\Exception $e) {
+        } catch (\Throwable $t) {
+            $this->throwableStorage->logThrowable(
+                $t,
+                [
+                    'resourceType' => $resourceType,
+                    'apiVersion' => $apiVersion,
+                    'propertyName' => $propertyName
+                ]
+            );
             return '';
         }
     }
@@ -319,18 +356,11 @@ class GenericModelController extends ApiController
             ->exposableTypeMap
             ->getExposableTypeByTypeName($resourceType, $apiVersion)
             ->className;
-        $parentClasses = array_merge([$class], class_parents($class));
-        foreach ($parentClasses as $modelCandidate) {
-            $repositoryCandidate = str_replace(
-                    '\\Domain\\Model\\',
-                    '\\Domain\\Repository\\',
-                    $modelCandidate
-                ) . 'Repository';
-            if (class_exists($repositoryCandidate)) {
-                return $this->objectManager->get($repositoryCandidate);
-            }
+        $repositoryClassName = ModelCompanion::forModel($class)->repositoryClassName;
+        if ($repositoryClassName === null) {
+            throw new UnknownObjectException('No Repository found for class "' . $class . '".', 1264589155);
         }
-        throw new UnknownObjectException('No Repository found for class "' . $class . '".', 1264589155);
+        return $this->objectManager->get($repositoryClassName);
     }
 
     /**
@@ -343,6 +373,7 @@ class GenericModelController extends ApiController
     protected function initializeActionMethodArguments(Arguments $arguments)
     {
         parent::initializeActionMethodArguments($arguments);
+        $this->applyAnnotationDefaults();
         $this->remapActionArguments($arguments);
     }
 
@@ -384,30 +415,24 @@ class GenericModelController extends ApiController
             )
             : null;
 
+        $companion = ModelCompanion::forModel($relationshipClassName ?: $exposableType->className);
+
         $this->remapActionArgument(
             $arguments,
-            'resource',
+            $this->resourceArgumentName,
             $exposableType->className
         );
 
         $this->remapActionArgument(
             $arguments,
             'sort',
-            str_replace(
-                '\\Model\\',
-                '\\Repository\\Sorting\\',
-                $relationshipClassName ?: $exposableType->className
-            ) . 'Sorting'
+            $companion->sortingClassName
         );
 
         $this->remapActionArgument(
             $arguments,
             'filter',
-            str_replace(
-                '\\Model\\',
-                '\\Repository\\Filter\\',
-                $relationshipClassName ?: $exposableType->className
-            ) . 'Filter',
+            $companion->filterClassName,
             []
         );
     }
@@ -415,14 +440,14 @@ class GenericModelController extends ApiController
     protected function remapActionArgument(
         Arguments $arguments,
         string $argumentName,
-        string $modelClassName,
+        ?string $modelClassName,
         $default = null
     ) {
         if (!$arguments->hasArgument($argumentName)) {
             return;
         }
 
-        if (false === class_exists($modelClassName)) {
+        if ($modelClassName === null || false === class_exists($modelClassName)) {
             return;
         }
 
@@ -487,7 +512,7 @@ class GenericModelController extends ApiController
         $request = $this->controllerContext->getRequest();
         assert($request instanceof ActionRequest);
 
-        $baseUri = new Uri((string)$request->getHttpRequest()->getUri());
+        $baseUri = new Uri((string) $request->getHttpRequest()->getUri());
 
         $withPageNumber = fn(int $pageNumber) => (string)UriHelper::uriWithAdditionalQueryParameters($baseUri, [
             'page' => [
@@ -513,10 +538,87 @@ class GenericModelController extends ApiController
             ? ($request->getArgument('apiVersion') ?: null)
             : null;
 
-        ExposableTypeMap::forceApiVersion(
-            $apiVersion,
-            fn() => parent::mapRequestArgumentsToControllerArguments($request, $arguments)
+        ExposableTypeMap::forceApiVersion($apiVersion, function () {
+            foreach ($this->arguments as $argument) {
+                assert($argument instanceof Argument);
+                $argumentName = $argument->getName();
+                if ($argument->getMapRequestBody()) {
+                    $body = $this->request->getHttpRequest()->getParsedBody();
+                    if (is_array($body)) {
+                        $body = Arrays::arrayMergeRecursiveOverrule(
+                            $body,
+                            $this->request->getHttpRequest()->getUploadedFiles()
+                        );
+                    }
+                    if ($argumentName === $this->resourceArgumentName && array_keys($body) === [$this->resourceArgumentName]) {
+                        // Backwards compatibility for old-style resource requests
+                        $body = $body[$this->resourceArgumentName];
+                    }
+
+                    $argument->setValue($body);
+                } elseif ($this->request->hasArgument($argumentName)) {
+                    $argumentValue = $this->request->getArgument($argumentName);
+                    if ($argumentName === $this->resourceArgumentName
+                        && is_string($argumentValue)
+                        && is_a($argument->getDataType(), ReadModelInterface::class, true)
+                    ) {
+                        // Loading an object from persistence doesn't require validation
+                        $argument->setValidator(new RawValidator());
+                    }
+                    $argument->setValue($argumentValue);
+                } elseif ($argument->isRequired()) {
+                    throw new RequiredArgumentMissingException(
+                        'Required argument "' . $argumentName . '" is not set.',
+                        1298012500
+                    );
+                }
+            }
+        });
+    }
+
+    /**
+     * Pre-populates the request with annotation-supplied defaults for `page`/`filter`/`sort`
+     * arguments. Runs BEFORE remapActionArguments() so the default lands in $this->request
+     * before remapActionArgument would inject its empty-array default for `filter`, and
+     * before the property-mapping loop reads from the request. Client-supplied values win
+     * (we only inject when the request has no such argument yet).
+     */
+    protected function applyAnnotationDefaults(): void
+    {
+        if (!$this->request->hasArgument('subPackage')
+            || !$this->request->hasArgument('resourceType')
+        ) {
+            return;
+        }
+
+        $exposableType = $this->exposableTypeMap->getExposableTypeByTypeName(
+            typeName: $this->request->getArgument('subPackage') . '/' . $this->request->getArgument('resourceType'),
+            apiVersion: $this->request->hasArgument('apiVersion')
+                ? $this->request->getArgument('apiVersion')
+                : ExposableTypeMapInterface::NEXT_VERSION
         );
+        $defaults = $this->configurationProvider->getSettingsForType($exposableType->className)->defaults;
+        if ($defaults === null) {
+            return;
+        }
+
+        foreach (['page', 'filter', 'sort'] as $argumentName) {
+            if (!array_key_exists($argumentName, $defaults)) {
+                continue;
+            }
+            $defaultValue = $defaults[$argumentName];
+            if ($this->request->hasArgument($argumentName)) {
+                $clientValue = $this->request->getArgument($argumentName);
+                if (is_array($defaultValue) && is_array($clientValue)) {
+                    $this->request->setArgument(
+                        $argumentName,
+                        Arrays::arrayMergeRecursiveOverrule($defaultValue, $clientValue)
+                    );
+                }
+                continue;
+            }
+            $this->request->setArgument($argumentName, $defaultValue);
+        }
     }
 
 }
