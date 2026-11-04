@@ -9,7 +9,7 @@
         "ext-json": "*",
         "doctrine/collections": "^2.0",
         "guzzlehttp/psr7": "^2.4",
-        "neos/flow": "~9.0.0",
+        "neos/flow": ">=9.0 <9.3",
         "netlogix/jsonapiorg": "^7.0"
     },
     "autoload": {
